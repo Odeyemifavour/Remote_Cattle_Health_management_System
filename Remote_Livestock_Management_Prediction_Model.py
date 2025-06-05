@@ -17,12 +17,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
-import joblib
 
 
 
 """# **LOAD AND PREVIEW DATASET**"""
-
 df = pd.read_excel('cattle_dataset.xlsx')
 print("Dataset Shape:", df.shape)
 print("\nFirst few rows:")
@@ -38,7 +36,7 @@ plt.title('Distribution of Health Status')
 plt.xlabel('Health Status')
 plt.ylabel('Count')
 plt.xticks(rotation=45)
-# plt.show()
+#plt.show()
 
 """# **breed type distribution based on health status**"""
 
@@ -50,7 +48,7 @@ plt.ylabel('Count')
 plt.xticks(rotation=45)
 plt.legend(title='Health Status')
 plt.tight_layout()
-# plt.show()
+#plt.show()
 
 """# **Numerical features summary**"""
 
@@ -70,11 +68,12 @@ for i, col in enumerate(numerical_cols):
     plt.xticks(rotation=30)
 
 plt.tight_layout()
-# plt.show()
+#plt.show()
 
 df[numerical_cols].hist(figsize=(18, 12), bins=30, edgecolor='black')
 plt.tight_layout()
-# plt.show()
+#plt.show()
+
 """# **Categorical Features Summary**"""
 
 # Summary for categorical features
@@ -99,8 +98,7 @@ for i, col in enumerate(categorical_cols):
     plt.xticks(rotation=30)
 
 plt.tight_layout()
-# plt.show()
-
+#plt.show()
 """# Vital Sign Summary"""
 
 # Vital sign features
@@ -117,7 +115,7 @@ for i, col in enumerate(vital_signs, 1):
     plt.ylabel(col.replace("_", " ").title())
 
 plt.tight_layout()
-# plt.show()
+#plt.show()
 
 """# Behavioural Analysis summary"""
 
@@ -134,7 +132,7 @@ for i, col in enumerate(behavioral_features):
     plt.ylabel(col.replace("_", " ").title())
 
 plt.tight_layout()
-# plt.show()
+#plt.show()
 
 # Define behavioral features
 behavioral = ['walking_capacity', 'sleeping_duration', 'eating_duration',
@@ -160,9 +158,19 @@ for i, col in enumerate(other_features):
     plt.ylabel(col.replace("_", " ").title())
 
 plt.tight_layout()
-# plt.show()
-
+#plt.show()
 """# **Encode Labels and Preprocess**"""
+
+import pandas as pd # Ensure pandas is imported
+import numpy as np # Ensure numpy is imported
+from sklearn.preprocessing import LabelEncoder, StandardScaler # Ensure these are imported
+from sklearn.model_selection import train_test_split # Ensure this is imported
+from sklearn.ensemble import RandomForestClassifier # Ensure this is imported
+from sklearn.metrics import accuracy_score, classification_report # Ensure these are imported
+import joblib # Ensure joblib is imported for saving/loading
+
+# --- Assume 'df' DataFrame is already loaded and preprocessed (e.g., handling missing values)
+# If 'df' is not defined here, make sure your actual script defines it correctly before this section.
 
 # Encode categorical columns (e.g., 'breed_type', 'faecal_consistency', 'health_status')
 le_breed = LabelEncoder()
@@ -172,57 +180,67 @@ le_faecal = LabelEncoder()
 df['faecal_consistency_enc'] = le_faecal.fit_transform(df['faecal_consistency'])
 
 le_health = LabelEncoder()
-df['health_status_enc'] = le_health.fit_transform(df['health_status'])  # healthy=0, unhealthy=1 (usually)
+df['health_status_enc'] = le_health.fit_transform(df['health_status']) # healthy=0, unhealthy=1 (usually)
+
+# Engineer features (if you do this before defining 'features' list)
+# Example: If these are created earlier in your actual script, ensure they are part of 'df'
+# before 'features' list is defined.
+if 'activity_ratio' not in df.columns:
+    df['activity_ratio'] = df['walking_capacity'] / (df['sleeping_duration'] + 1e-6)
+if 'eating_efficiency' not in df.columns:
+    df['eating_efficiency'] = df['milk_production'] / (df['eating_duration'] + 1e-6)
+if 'vital_sign_index' not in df.columns:
+    df['vital_sign_index'] = (df['heart_rate'] + df['respiratory_rate'] + df['body_temperature']) / 3
+
 
 # Define features and target
 features = ['body_temperature', 'breed_type_enc', 'milk_production', 'respiratory_rate',
             'walking_capacity', 'sleeping_duration', 'body_condition_score', 'heart_rate',
-            'eating_duration', 'lying_down_duration', 'ruminating', 'rumen_fill', 'faecal_consistency_enc']
+            'eating_duration', 'lying_down_duration', 'ruminating', 'rumen_fill',
+            'faecal_consistency_enc', # Label encoded categorical feature
+            'activity_ratio',      # Engineered feature
+            'eating_efficiency',   # Engineered feature
+            'vital_sign_index'     # Engineered feature
+           ] # Make sure ALL your features, including engineered ones, are in this list
 
 X = df[features]
 y = df['health_status_enc']
 
+# ********************************************************************************
+# *** THIS IS THE CRUCIAL POINT TO GET THE EXACT FEATURE ORDER ***
+# ********************************************************************************
+
+print("\n--- COPY THIS LIST EXACTLY FOR training_features_for_model in app.py ---")
+print(list(X.columns))
+print("-----------------------------------------------------------------------\n")
+
+# ********************************************************************************
+
 # Scale features
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-"""# **Split Data and Train Model**"""
+X_scaled = scaler.fit_transform(X) # X_scaled will now be a NumPy array
 
 # Train-test split
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
 # Train Random Forest Classifier
 model = RandomForestClassifier(random_state=42)
-model.fit(X_train, y_train)
+model.fit(X_train, y_train) # Model is fitted on a NumPy array, but the order was established by X.columns
 
 # Predict on test set and evaluate
 y_pred = model.predict(X_test)
 print("Accuracy:", accuracy_score(y_test, y_pred))
 print(classification_report(y_test, y_pred, target_names=le_health.classes_))
 
-# flask-api/app.py
+# Save your model and scaler (make sure you do this in your training script)
+joblib.dump(model, 'model.joblib')
+joblib.dump(scaler, 'scaler.joblib')
+joblib.dump(le_health, 'le_health.joblib')
+joblib.dump(le_breed, 'le_breed.joblib') # Save your breed encoder!
+joblib.dump(le_faecal, 'le_faecal.joblib') # Save your faecal consistency encoder!
 
-# ... (your existing model training and evaluation code) ...
+print("\nModel, Scaler, and LabelEncoders saved successfully!")
 
-# Add these lines to save the trained model and preprocessing tools:
-# We will save them directly into your 'flask-api' folder.
-model_path = 'flask-api/model.joblib'
-scaler_path = 'flask-api/scaler.joblib'
-le_health_path = 'flask-api/le_health.joblib' # For health status LabelEncoder
-
-# Save the trained model (e.g., RandomForestClassifier)
-joblib.dump(model, model_path)
-print(f"Model saved to {model_path}")
-
-# Save the StandardScaler (used for scaling numerical features)
-joblib.dump(scaler, scaler_path)
-print(f"Scaler saved to {scaler_path}")
-
-# Save the LabelEncoder for 'health_status'
-joblib.dump(le_health, le_health_path)
-print(f"Label Encoder for health_status saved to {le_health_path}")
-
-# ... (any remaining print statements or code you had at the very end of your script) ...
 """# **Feature Importance Plot**"""
 
 # Feature importance plot
@@ -233,7 +251,7 @@ plt.figure(figsize=(10, 6))
 sns.barplot(x='importance', y='feature', data=feature_importance.head(10))
 plt.title('Top 10 Most Important Features')
 plt.tight_layout()
-# plt.show()
+#plt.show()
 
 """## ** Engineered Features Visualization**"""
 
@@ -257,7 +275,7 @@ for i, col in enumerate(engineered_features):
     sns.boxplot(x='health_status', y=col, data=df, ax=axes[i])
     axes[i].set_title(f'{col.replace("_", " ").title()} vs Health Status')
 plt.tight_layout()
-# plt.show()
+#plt.show()
 
 """# **Define Function to Detect Specific Diseases & Generate Alerts**"""
 
@@ -556,9 +574,44 @@ print(json.dumps(final_dashboard_output, indent=4))
 
 import datetime
 import json
+import pandas as pd # Make sure pandas is imported
+import numpy as np # Make sure numpy is imported
+import joblib # Make sure joblib is imported
 
-# Assume le_breed, le_faecal, model, le_health, scaler, features (list of ML model features)
-# and get_rule_based_alerts function are already defined and loaded/in scope.
+# Assume le_breed, le_faecal, model, le_health, scaler are loaded or defined in your training environment.
+# For this snippet to run independently and show the 'features' list,
+# you'll need to have these objects defined or loaded beforehand.
+# Example placeholders (replace with your actual loading or definitions):
+try:
+    # These would be loaded from your saved .joblib files in a real training script
+    # For a minimal example, if they are not loaded, just define dummy ones to allow the code to run
+    # and reveal the 'features' list.
+    class DummyLabelEncoder:
+        def __init__(self, classes):
+            self.classes_ = classes
+        def transform(self, values):
+            return [self.classes_.index(v) if v in self.classes_ else 0 for v in values]
+
+    le_breed = joblib.load('le_breed.joblib') # Load your actual encoder
+    le_faecal = joblib.load('le_faecal.joblib') # Load your actual encoder
+    le_health = joblib.load('le_health.joblib') # Load your actual encoder
+
+    # Dummy model and scaler for the purpose of getting the 'features' list to print
+    # You DO NOT need to load your actual model and scaler for this specific task of printing 'features'.
+    # If your training script successfully ran before, these objects should exist.
+    model = None # Placeholder, not needed for printing 'features'
+    scaler = None # Placeholder, not needed for printing 'features'
+
+    # Placeholder for get_rule_based_alerts if it's not defined elsewhere in your script
+    def get_rule_based_alerts(data):
+        return [], [], 0
+
+except FileNotFoundError:
+    print("Warning: Some .joblib files not found. Creating dummy encoders for 'features' list extraction.")
+    le_breed = DummyLabelEncoder(['Normal Breed', 'Indigenous Breed', 'Cross Breed', 'Holstein'])
+    le_faecal = DummyLabelEncoder(['ideal', 'dry', 'loose', 'watery', 'Black faece'])
+    le_health = DummyLabelEncoder(['Healthy', 'Unhealthy']) # Add your actual health statuses
+
 
 # --- Start of updated "Sample Unhealthy Cow Input (New Test Case)" section ---
 
@@ -583,74 +636,114 @@ unhealthy_data = {
 test_df = pd.DataFrame([unhealthy_data])
 
 # --- Robust Encoding for Categorical Features ---
-# Ensure these values are in le_breed.classes_ and le_faecal.classes_
-# A better practice is to define a consistent 'unknown' or 'other' category during training
-# or use the mode of the training data. For now, we'll try a known common category.
-
-# For 'breed_type'
 breed_type_val = unhealthy_data.get('breed_type')
 if breed_type_val in le_breed.classes_:
     test_df['breed_type_enc'] = le_breed.transform([breed_type_val])
 else:
-    # Fallback: Use a known category from training data (e.g., 'Normal Breed' or the mode)
-    # IMPORTANT: 'Normal Breed' MUST exist in your le_breed.classes_
-    fallback_breed_type = 'Normal Breed' # Adjust this to a category known by your le_breed
+    fallback_breed_type = 'Normal Breed'
     if fallback_breed_type not in le_breed.classes_:
-        # If even fallback_breed_type isn't found, pick the first class known by the encoder
         fallback_breed_type = le_breed.classes_[0]
         print(f"Warning: Fallback 'Normal Breed' not found in le_breed.classes_. Using '{fallback_breed_type}' instead.")
-
     test_df['breed_type_enc'] = le_breed.transform([fallback_breed_type])
     print(f"Warning: Unseen breed_type '{breed_type_val}' in input. Encoding as '{fallback_breed_type}'.")
 
-
-# For 'faecal_consistency'
 faecal_consistency_val = unhealthy_data.get('faecal_consistency')
 if faecal_consistency_val in le_faecal.classes_:
     test_df['faecal_consistency_enc'] = le_faecal.transform([faecal_consistency_val])
 else:
-    # Fallback: Use a known category from training data (e.g., 'ideal' or the mode)
-    # IMPORTANT: 'ideal' MUST exist in your le_faecal.classes_
-    fallback_faecal_consistency = 'ideal' # Adjust this to a category known by your le_faecal
+    fallback_faecal_consistency = 'ideal'
     if fallback_faecal_consistency not in le_faecal.classes_:
         fallback_faecal_consistency = le_faecal.classes_[0]
         print(f"Warning: Fallback 'ideal' not found in le_faecal.classes_. Using '{fallback_faecal_consistency}' instead.")
-
     test_df['faecal_consistency_enc'] = le_faecal.transform([fallback_faecal_consistency])
     print(f"Warning: Unseen faecal_consistency '{faecal_consistency_val}' in input. Encoding as '{fallback_faecal_consistency}'.")
 
-
 # Engineer features as done during training (with epsilon for division by zero)
-test_df['activity_ratio'] = test_df['walking_capacity'] / (test_df['sleeping_duration'] + 1e-6)
-test_df['eating_efficiency'] = test_df['milk_production'] / (test_df['eating_duration'] + 1e-6)
+epsilon = 1e-6 # Define epsilon
+test_df['activity_ratio'] = test_df['walking_capacity'] / (test_df['sleeping_duration'] + epsilon)
+test_df['eating_efficiency'] = test_df['milk_production'] / (test_df['eating_duration'] + epsilon)
 test_df['vital_sign_index'] = (test_df['heart_rate'] + test_df['respiratory_rate'] + test_df['body_temperature']) / 3
+
+# Define the 'features' list - THIS IS THE CRITICAL LINE!
+# You should have defined this list when you initially prepared your training data.
+# This example is a very common structure. If your actual training script has a different list,
+# or a different order, you must use that.
+features = [
+    'body_temperature',
+    'milk_production',
+    'respiratory_rate',
+    'walking_capacity',
+    'sleeping_duration',
+    'body_condition_score',
+    'heart_rate',
+    'eating_duration',
+    'lying_down_duration',
+    'ruminating',
+    'rumen_fill',
+    'activity_ratio',      # Engineered feature
+    'eating_efficiency',   # Engineered feature
+    'vital_sign_index',    # Engineered feature
+    'breed_type_Holstein', # Example: assuming this is one-hot encoded and present
+    'breed_type_Normal Breed',
+    'breed_type_Indigenous Breed',
+    'breed_type_Cross Breed',
+    'faecal_consistency_Black faece', # Example: assuming this is one-hot encoded and present
+    'faecal_consistency_dry',
+    'faecal_consistency_ideal',
+    'faecal_consistency_loose',
+    'faecal_consistency_watery'
+    # Add ALL one-hot encoded columns in the exact order they appeared in X_train.columns
+    # This often means alphabetical order if you used pd.get_dummies default settings.
+]
+
+# ***********************************************************************************
+# *** ADDED: PRINT THE 'features' LIST TO GET THE EXACT ORDER AND NAMES ***
+# ***********************************************************************************
+print("\n--- COPY THIS LIST FOR training_features_for_model in app.py ---")
+print(features)
+print("-----------------------------------------------------------------\n")
+# ***********************************************************************************
 
 # Select features used for the model (must be the exact list used in training)
 for feature in features:
     if feature not in test_df.columns:
         test_df[feature] = 0 # Assign a default if a feature column is unexpectedly missing
+        # NOTE: Assigning 0 for a missing one-hot encoded column is correct.
+        # For missing numerical engineered features, it might indicate an issue.
 
-X_test_simulated = test_df[features]
+X_test_simulated = test_df[features] # This line effectively orders your DataFrame
 
 # Scale features with the scaler fitted on training data
-X_test_simulated_scaled = scaler.transform(X_test_simulated)
+# NOTE: For this snippet to run, your 'scaler' object must be loaded or defined.
+# If not, this line will cause an error unless you're just trying to get the 'features' list.
+if scaler: # Only try to scale if scaler is defined/loaded
+    X_test_simulated_scaled = scaler.transform(X_test_simulated)
+else:
+    print("Warning: Scaler not loaded/defined. Skipping scaling for this simulation.")
+    X_test_simulated_scaled = X_test_simulated.values # Proceed with unscaled values for list printing
 
 # Predict class and probabilities
-pred_proba = model.predict_proba(X_test_simulated_scaled)[0]
-pred_class_idx = np.argmax(pred_proba)
-pred_health_status = le_health.inverse_transform([pred_class_idx])[0]
+# NOTE: For this snippet to run, your 'model' object must be loaded or defined.
+if model: # Only try to predict if model is defined/loaded
+    pred_proba = model.predict_proba(X_test_simulated_scaled)[0]
+    pred_class_idx = np.argmax(pred_proba)
+    pred_health_status = le_health.inverse_transform([pred_class_idx])[0]
 
-# Calculate confidence for the predicted class
-confidence = pred_proba[pred_class_idx] * 100
+    # Calculate confidence for the predicted class
+    confidence = pred_proba[pred_class_idx] * 100
 
-# Prepare ML prediction probabilities for output
-ml_prediction_probabilities = {
-    le_health.inverse_transform([i])[0]: round(p * 100, 2)
-    for i, p in enumerate(pred_proba)
-}
+    # Prepare ML prediction probabilities for output
+    ml_prediction_probabilities = {
+        le_health.inverse_transform([i])[0]: round(p * 100, 2)
+        for i, p in enumerate(pred_proba)
+    }
+else:
+    print("Warning: Model not loaded/defined. Skipping ML prediction for this simulation.")
+    pred_health_status = "N/A (Model Not Loaded)"
+    confidence = 0.0
+    ml_prediction_probabilities = {}
 
 # --- Rule-Based Disease Detection and Alert Generation Part ---
-# Use the new structured function on original raw data dictionary
 rule_based_diseases, structured_alerts_list, abnormal_indicator_count = get_rule_based_alerts(unhealthy_data)
 
 # --- Consolidate and Finalize Output for Dashboard ---
@@ -658,7 +751,6 @@ rule_based_diseases, structured_alerts_list, abnormal_indicator_count = get_rule
 overall_health_status = pred_health_status.capitalize()
 overall_risk_level = "Low" # Default based on ML prediction
 
-# Initial Risk level logic based on ML prediction
 if pred_health_status.lower() == 'unhealthy':
     if confidence > 80:
         overall_risk_level = "High"
@@ -669,8 +761,6 @@ if pred_health_status.lower() == 'unhealthy':
 else:
     overall_risk_level = "Low"
 
-
-# Adjust overall health status and risk based on rule-based findings
 if rule_based_diseases:
     if overall_risk_level == "Low" or overall_risk_level == "Low-Medium":
         for alert in structured_alerts_list:
