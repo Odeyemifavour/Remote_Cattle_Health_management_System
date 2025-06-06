@@ -40,9 +40,15 @@
                     <i class="fa-solid fa-cog fa-icon"></i> Settings/Help
                 </router-link>
             </li>
-             <li>
+            <li>
                 <router-link to="/add-data" active-class="active" class="nav-link">
                     <i class="fa-solid fa-plus-circle fa-icon"></i> Add Cattle Data
+                </router-link>
+            </li>
+            <!-- --- NEW LINK FOR CATTLE PREDICTION TOOL --- -->
+            <li>
+                <router-link to="/predict-cattle" active-class="active" class="nav-link">
+                    <i class="fa-solid fa-stethoscope fa-icon"></i> Cattle Prediction
                 </router-link>
             </li>
         </ul>

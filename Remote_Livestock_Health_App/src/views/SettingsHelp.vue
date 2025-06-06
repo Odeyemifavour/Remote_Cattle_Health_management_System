@@ -1,4 +1,4 @@
-<<template>
+<template>
     <div class="card">
         <h2 class="card-title">Settings & Help</h2>
         <p class="message-center">Manage application settings and access help resources here.</p>

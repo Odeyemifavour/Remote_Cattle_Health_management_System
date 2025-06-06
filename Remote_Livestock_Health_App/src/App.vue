@@ -1,12 +1,20 @@
 <template>
     <div v-if="!store.isAuthReady" class="message-center">
         <p>Initializing authentication...</p>
+        <!-- Temporary Debug Info -->
+        <p>Auth Ready: {{ store.isAuthReady }}</p>
+        <p>User ID: {{ store.userId }}</p>
     </div>
     <div v-else class="dashboard-root">
         <SideBar :user-id="store.userId" @logout="handleLogout" />
 
         <div class="main-content">
             <TopNavbar :farm-name="'My Awesome Farm'" :user-id="store.userId" />
+            <!-- Temporary Debug Info -->
+            <div class="auth-status-bar" v-if="store.isAuthReady && !store.userId">
+                <p><strong>Warning:</strong> User not logged in, some features may not work. Please refresh if login issues persist.</p>
+                <p>Current User ID: {{ store.userId || 'N/A' }}</p>
+            </div>
             <div class="content-area">
                 <router-view></router-view>
             </div>
@@ -147,6 +155,18 @@ body {
     margin-bottom: 20px;
     font-weight: 500;
 }
+
+.auth-status-bar {
+    background-color: #FFECB3; /* Light orange for warning */
+    color: #FF8F00; /* Darker orange text */
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: 500;
+    margin-bottom: 20px; /* Space it out from content below */
+    border-bottom: 1px solid #FFC107;
+}
+
 
 /* Responsive Adjustments (common to all components) */
 @media (max-width: 768px) {

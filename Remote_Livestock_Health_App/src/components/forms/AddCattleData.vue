@@ -15,11 +15,11 @@
             </div>
             <div class="form-group">
                 <label for="body_temperature">Body Temperature (°C):</label>
-                <input type="number" step="0.1" id="body_temperature" v-model.number="formData.raw_data.body_temperature" required>
+                <input type="number" step="0.1" id="body_temperature" v-model.number="formData.body_temperature" required>
             </div>
             <div class="form-group">
                 <label for="breed_type">Breed Type:</label>
-                <select id="breed_type" v-model="formData.raw_data.breed_type" required>
+                <select id="breed_type" v-model="formData.breed_type" required>
                     <option value="Normal Breed">Normal Breed</option>
                     <option value="Cross Breed">Cross Breed</option>
                     <option value="Holstein">Holstein</option>
@@ -29,47 +29,47 @@
             </div>
             <div class="form-group">
                 <label for="milk_production">Milk Production (L/day):</label>
-                <input type="number" step="0.1" id="milk_production" v-model.number="formData.raw_data.milk_production" required>
+                <input type="number" step="0.1" id="milk_production" v-model.number="formData.milk_production" required>
             </div>
             <div class="form-group">
                 <label for="respiratory_rate">Respiratory Rate (breaths/min):</label>
-                <input type="number" id="respiratory_rate" v-model.number="formData.raw_data.respiratory_rate" required>
+                <input type="number" id="respiratory_rate" v-model.number="formData.respiratory_rate" required>
             </div>
             <div class="form-group">
                 <label for="walking_capacity">Walking Capacity (steps/day):</label>
-                <input type="number" id="walking_capacity" v-model.number="formData.raw_data.walking_capacity" required>
+                <input type="number" id="walking_capacity" v-model.number="formData.walking_capacity" required>
             </div>
             <div class="form-group">
                 <label for="sleeping_duration">Sleeping Duration (hours):</label>
-                <input type="number" step="0.1" id="sleeping_duration" v-model.number="formData.raw_data.sleeping_duration" required>
+                <input type="number" step="0.1" id="sleeping_duration" v-model.number="formData.sleeping_duration" required>
             </div>
             <div class="form-group">
                 <label for="body_condition_score">Body Condition Score (1-5):</label>
-                <input type="number" step="0.1" id="body_condition_score" v-model.number="formData.raw_data.body_condition_score" required>
+                <input type="number" step="0.1" id="body_condition_score" v-model.number="formData.body_condition_score" required>
             </div>
             <div class="form-group">
                 <label for="heart_rate">Heart Rate (bpm):</label>
-                <input type="number" id="heart_rate" v-model.number="formData.raw_data.heart_rate" required>
+                <input type="number" id="heart_rate" v-model.number="formData.heart_rate" required>
             </div>
             <div class="form-group">
                 <label for="eating_duration">Eating Duration (hours):</label>
-                <input type="number" step="0.1" id="eating_duration" v-model.number="formData.raw_data.eating_duration" required>
+                <input type="number" step="0.1" id="eating_duration" v-model.number="formData.eating_duration" required>
             </div>
             <div class="form-group">
                 <label for="lying_down_duration">Lying Down Duration (hours):</label>
-                <input type="number" step="0.1" id="lying_down_duration" v-model.number="formData.raw_data.lying_down_duration" required>
+                <input type="number" step="0.1" id="lying_down_duration" v-model.number="formData.lying_down_duration" required>
             </div>
             <div class="form-group">
                 <label for="ruminating">Ruminating (hours):</label>
-                <input type="number" step="0.1" id="ruminating" v-model.number="formData.raw_data.ruminating" required>
+                <input type="number" step="0.1" id="ruminating" v-model.number="formData.ruminating" required>
             </div>
             <div class="form-group">
                 <label for="rumen_fill">Rumen Fill (1-5):</label>
-                <input type="number" id="rumen_fill" v-model.number="formData.raw_data.rumen_fill" required>
+                <input type="number" id="rumen_fill" v-model.number="formData.rumen_fill" required>
             </div>
             <div class="form-group">
                 <label for="faecal_consistency">Faecal Consistency:</label>
-                <select id="faecal_consistency" v-model="formData.raw_data.faecal_consistency" required>
+                <select id="faecal_consistency" v-model="formData.faecal_consistency" required>
                     <option value="ideal">ideal</option>
                     <option value="watery">watery</option>
                     <option value="Black faece">Black faece</option>
@@ -89,18 +89,16 @@
 
 <script setup>
 import { reactive, ref } from 'vue';
-import { store } from '../../main.js';
+import { store } from '../../main.js'; // Ensure this path is correct
 import { doc, setDoc } from 'firebase/firestore';
 
 const formData = reactive({
     cattle_id: '',
-    raw_data: {
-        body_temperature: null, breed_type: 'Normal Breed', milk_production: null,
-        respiratory_rate: null, walking_capacity: null, sleeping_duration: null,
-        body_condition_score: null, heart_rate: null, eating_duration: null,
-        lying_down_duration: null, ruminating: null, rumen_fill: null,
-        faecal_consistency: 'ideal',
-    }
+    body_temperature: null, breed_type: 'Normal Breed', milk_production: null,
+    respiratory_rate: null, walking_capacity: null, sleeping_duration: null,
+    body_condition_score: null, heart_rate: null, eating_duration: null,
+    lying_down_duration: null, ruminating: null, rumen_fill: null,
+    faecal_consistency: 'ideal',
 });
 const successMessage = ref('');
 
@@ -116,34 +114,46 @@ const submitData = async () => {
     }
 
     try {
-        const response = await fetch(store.flaskApiUrl, {
+        // --- Prepare data for Flask API to match expected format ---
+        // Create a copy of the raw data to send to the API
+        const rawInputData = { ...formData };
+        delete rawInputData.cattle_id; // Remove cattle_id as it's not a direct model feature
+
+        const response = await fetch(store.flaskApiUrl, { // Using corrected API URL from store
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(rawInputData), // Send the raw input data
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to get prediction from Flask API.');
+            throw new Error(errorData.error || `Failed to get prediction from Flask API: ${response.statusText}`);
         }
 
         const result = await response.json();
         console.log('Prediction Result from Flask:', result);
 
+        // --- Save the complete API response (which includes ML predictions and alerts) to Firestore ---
+        // Ensure the document ID is cattle_id as per your Firestore structure
         const cattleDocRef = doc(store.db, `artifacts/${store.appId}/users/${store.userId}/cattle_data`, result.cattle_id);
         await setDoc(cattleDocRef, result);
 
         successMessage.value = `Data for Cattle ID "${result.cattle_id}" submitted and saved successfully!`;
+        // Reset form after successful submission
         formData.cattle_id = '';
-        for (const key in formData.raw_data) {
-            if (typeof formData.raw_data[key] === 'number') {
-                formData.raw_data[key] = null;
-            } else if (typeof formData.raw_data[key] === 'string') {
-                if (key === 'breed_type') formData.raw_data[key] = 'Normal Breed';
-                else if (key === 'faecal_consistency') formData.raw_data[key] = 'ideal';
-                else formData.raw_data[key] = '';
-            }
-        }
+        formData.body_temperature = null;
+        formData.breed_type = 'Normal Breed';
+        formData.milk_production = null;
+        formData.respiratory_rate = null;
+        formData.walking_capacity = null;
+        formData.sleeping_duration = null;
+        formData.body_condition_score = null;
+        formData.heart_rate = null;
+        formData.eating_duration = null;
+        formData.lying_down_duration = null;
+        formData.ruminating = null;
+        formData.rumen_fill = null;
+        formData.faecal_consistency = 'ideal';
 
     } catch (error) {
         console.error('Error submitting data:', error);
