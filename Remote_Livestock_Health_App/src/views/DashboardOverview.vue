@@ -1,254 +1,700 @@
 <template>
     <div class="content-area">
-        <h2 class="card-title">Dashboard Overview</h2>
-        <div v-if="store.loading" class="message-center">Loading cattle data...</div>
-        <div v-else-if="store.error" class="error-message">
-            <span>{{ store.error }}</span>
+        <h2 class="card-title">Overview/Home</h2>
+        <div v-if="store.loading" class="message-center">
+            <i class="fa-solid fa-spinner fa-spin fa-2x"></i> Loading herd data...
         </div>
-        <div v-else-if="filteredCattle.length === 0" class="message-center">
-            No cattle data available. Add some data using the "Add Cattle Data" section or the "Cattle Prediction" tool.
+        <div v-else-if="store.error" class="error-message">
+            <i class="fa-solid fa-circle-exclamation mr-2"></i> <span>{{ store.error }}</span>
         </div>
         <div v-else>
-            <!-- Summary Statistics Cards -->
-            <div class="summary-grid mb-8">
-                <div class="summary-card total-cattle">
-                    <i class="fa-solid fa-cow fa-2x"></i>
-                    <h3>Total Cattle</h3>
-                    <p class="metric">{{ totalCattleCount }}</p>
+            <!-- Herd Health Status Cards -->
+            <div class="health-status-grid mb-8">
+                <div class="status-card health-healthy">
+                    <h3>Healthy</h3>
+                    <i class="fa-solid fa-seedling fa-2x"></i>
+                    <p class="count">{{ herdHealth.healthy }}</p>
+                    <span class="percentage">({{ herdHealth.healthyPercentage }}%)</span>
                 </div>
-                <div class="summary-card healthy-cattle">
-                    <i class="fa-solid fa-heart fa-2x"></i>
-                    <h3>Healthy Cattle</h3>
-                    <p class="metric">{{ healthyCattleCount }}</p>
+                <div class="status-card health-at-risk">
+                    <h3>At Risk</h3>
+                    <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
+                    <p class="count">{{ herdHealth.atRisk }}</p>
+                    <span class="percentage">({{ herdHealth.atRiskPercentage }}%)</span>
                 </div>
-                <div class="summary-card unhealthy-cattle">
-                    <i class="fa-solid fa-skull-crossbones fa-2x"></i>
-                    <h3>Unhealthy Cattle</h3>
-                    <p class="metric">{{ unhealthyCattleCount }}</p>
-                </div>
-                <div class="summary-card critical-alerts">
-                    <i class="fa-solid fa-exclamation-triangle fa-2x"></i>
-                    <h3>Critical Alerts</h3>
-                    <p class="metric">{{ criticalAlertsCount }}</p>
+                <div class="status-card health-observation">
+                    <h3>Under Observation</h3>
+                    <i class="fa-solid fa-eye fa-2x"></i>
+                    <p class="count">{{ herdHealth.underObservation }}</p>
+                    <span class="percentage">({{ herdHealth.underObservationPercentage }}%)</span>
                 </div>
             </div>
 
-            <!-- Top Alerts Section -->
-            <div class="card mb-8">
-                <h3 class="card-title-small">Top 5 Recent Alerts</h3>
-                <div v-if="store.activeAlerts.length === 0" class="message-center">
-                    No recent alerts to display.
-                </div>
-                <div v-else class="space-y-4">
-                    <div v-for="alert in topRecentAlerts" :key="alert.id"
-                         :class="['alert-card-small', alert.severity.toLowerCase().replace(' ', '')]">
-                        <p class="font-semibold mb-1">Cattle ID: <span class="font-bold">{{ alert.cattleId }}</span></p>
-                        <p class="text-sm text-gray-700 mb-1">Time: {{ alert.timestamp }}</p>
-                        <p class="text-md font-medium" :class="getAlertTextClass(alert.severity)">
-                            {{ alert.message }}
-                        </p>
-                        <p class="text-sm text-gray-600 mt-1">Severity: <span :class="getAlertTextClass(alert.severity)">{{ alert.severity }}</span></p>
-                    </div>
-                </div>
-                <router-link to="/alerts" class="view-more-link">View All Alerts <i class="fa-solid fa-arrow-right"></i></router-link>
+            <!-- Recent Critical Alerts Section -->
+            <div class="card recent-alerts-card mb-8">
+                <h3 class="card-title-small">Recent Critical Alerts</h3>
+                <ul v-if="recentCriticalAlerts.length > 0" class="alert-list">
+                    <li v-for="alert in recentCriticalAlerts" :key="alert.id" class="alert-item">
+                        <!-- Navigates to Prediction Log where all details are available -->
+                        <router-link :to="`/prediction-log`" class="alert-link">
+                            <span class="alert-icon"><i class="fa-solid fa-skull-crossbones"></i></span>
+                            <span class="alert-message-text">{{ alert.message }} (Cattle ID: {{ alert.cattleId }})</span>
+                            <span class="alert-timestamp">{{ formatTimestamp(alert.timestamp) }}</span>
+                        </router-link>
+                    </li>
+                </ul>
+                <p v-else class="message-center">No recent critical alerts.</p>
+                <button @click="$router.push('/alerts')" class="view-all-alerts-button">
+                    View All Alerts <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
             </div>
 
-            <!-- Latest Predictions Section -->
-            <div class="card">
-                <h3 class="card-title-small">Latest 5 Predictions</h3>
-                <div v-if="filteredCattle.length === 0" class="message-center">
-                    No recent predictions to display.
-                </div>
-                <div v-else class="space-y-4">
-                    <div v-for="cattle in latestPredictions" :key="cattle.id"
-                         :class="['prediction-summary-card', getCardClass(cattle.monitoring_results.risk_level)]">
-                        <p class="font-semibold mb-1">Cattle ID: <span class="font-bold">{{ cattle.cattle_id }}</span></p>
-                        <p class="text-sm text-gray-700 mb-1">Last Updated: {{ cattle.timestamp }}</p>
-                        <p class="text-md font-bold mb-1">Status: {{ cattle.monitoring_results.health_status }}</p>
-                        <p class="text-md font-bold mb-1">Risk: {{ cattle.monitoring_results.risk_level }}</p>
-                        <p class="text-sm text-gray-600">Confidence: {{ cattle.monitoring_results.confidence }}</p>
+            <!-- Key Metric Trends Section -->
+            <div class="metric-trends-grid mb-8">
+                <div class="card trend-chart-card">
+                    <h3 class="card-title-small">Overall Herd Risk Level</h3>
+                    <div class="chart-container">
+                        <canvas ref="riskLevelChartCanvas"></canvas>
                     </div>
+                    <p class="chart-description">Trend of the overall herd health risk level.</p>
                 </div>
-                <router-link to="/prediction-log" class="view-more-link">View All Predictions <i class="fa-solid fa-arrow-right"></i></router-link>
+                <div class="card trend-chart-card">
+                    <h3 class="card-title-small">Average Fever Index</h3>
+                    <div class="chart-container">
+                        <canvas ref="feverIndexChartCanvas"></canvas>
+                    </div>
+                    <p class="chart-description">Average body temperature deviation indicating thermal stress.</p>
+                </div>
+                <div class="card trend-chart-card">
+                    <h3 class="card-title-small">Average Productivity Score</h3>
+                    <div class="chart-container">
+                        <canvas ref="productivityScoreChartCanvas"></canvas>
+                    </div>
+                    <p class="chart-description">Herd's overall productivity based on milk production and activity.</p>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card quick-actions-card">
+                <h3 class="card-title-small">Quick Actions</h3>
+                <div class="quick-actions-grid">
+                    <button @click="openAddAnimalModal" class="action-button primary-action">
+                        <i class="fa-solid fa-plus-circle mr-2"></i> Add New Animal
+                    </button>
+                    <button @click="$router.push('/dashboard/herd-dashboard')" class="action-button secondary-action">
+                        <i class="fa-solid fa-chart-bar mr-2"></i> View Herd Dashboard
+                    </button>
+                    <button @click="$router.push('/add-data')" class="action-button tertiary-action">
+                        <i class="fa-solid fa-database mr-2"></i> Input Daily Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add New Animal Modal -->
+            <div v-if="showAddAnimalModal" class="modal-overlay">
+                <div class="modal">
+                    <span class="close-icon" @click="closeAddAnimalModal">×</span>
+                    <h3>Add New Animal</h3>
+                    <p class="modal-message">This feature is integrated into the "Add Cattle Data" page, where you can submit data for new or existing cattle IDs. For full cattle management, see the "Cattle Information" section.</p>
+                    <button @click="closeAddAnimalModal" class="modal-close-button">Close</button>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { store } from '../main.js'; // Assuming store is exported from main.js
+import { ref, onMounted, onUnmounted, computed, watch, reactive } from 'vue';
+import { store } from '../main.js'; // Import the global store
 
-const getCardClass = (riskLevel) => {
-    return `risk-${riskLevel.toLowerCase().replace(' ', '-')}`;
-};
+// IMPORTANT: Chart.js is loaded via CDN in index.html, so it's available globally as window.Chart
+// Do NOT import Chart from 'chart.js/auto'; here.
 
-const getAlertTextClass = (severity) => {
-    return `text-${severity.toLowerCase().replace(' ', '-')}`;
-};
+// Refs for Chart.js canvas elements
+const riskLevelChartCanvas = ref(null);
+const feverIndexChartCanvas = ref(null);
+const productivityScoreChartCanvas = ref(null);
 
-// Computes the latest entry for each unique cattle ID
-const filteredCattle = computed(() => {
+// Chart instances
+let riskLevelChart = null;
+let feverIndexChart = null;
+let productivityScoreChart = null;
+
+// --- Herd Health Summary (Computed from store.cattleData) ---
+const herdHealth = computed(() => {
     const latestCattle = {};
     store.cattleData.forEach(cattle => {
-        // Ensure that monitoring_results and health_status exist
-        if (cattle.monitoring_results && cattle.monitoring_results.health_status) {
+        if (cattle.monitoring_results && cattle.monitoring_results.health_status && cattle.cattle_id) {
             if (!latestCattle[cattle.cattle_id] || new Date(cattle.timestamp) > new Date(latestCattle[cattle.cattle_id].timestamp)) {
                 latestCattle[cattle.cattle_id] = cattle;
             }
         }
     });
-    return Object.values(latestCattle);
+
+    let healthy = 0;
+    let atRisk = 0;
+    let underObservation = 0;
+    const total = Object.keys(latestCattle).length;
+
+    Object.values(latestCattle).forEach(cattle => {
+        const status = cattle.monitoring_results.health_status.toLowerCase();
+        const risk = cattle.monitoring_results.risk_level.toLowerCase();
+
+        if (status === 'healthy' && risk === 'low') {
+            healthy++;
+        } else if (status === 'unhealthy' && (risk === 'critical' || risk === 'high')) {
+            atRisk++;
+        } else { // Includes healthy with higher risk, or unhealthy with lower/medium risk
+            underObservation++;
+        }
+    });
+
+    return {
+        healthy,
+        atRisk,
+        underObservation,
+        totalHerdCount: total,
+        healthyPercentage: total > 0 ? ((healthy / total) * 100).toFixed(1) : 0,
+        atRiskPercentage: total > 0 ? ((atRisk / total) * 100).toFixed(1) : 0,
+        underObservationPercentage: total > 0 ? ((underObservation / total) * 100).toFixed(1) : 0,
+    };
 });
 
-// Summary Statistics
-const totalCattleCount = computed(() => filteredCattle.value.length);
-const healthyCattleCount = computed(() => filteredCattle.value.filter(c => c.monitoring_results.health_status.toLowerCase() === 'healthy').length);
-const unhealthyCattleCount = computed(() => filteredCattle.value.filter(c => c.monitoring_results.health_status.toLowerCase() === 'unhealthy').length);
-const criticalAlertsCount = computed(() => store.activeAlerts.filter(alert => alert.severity.toLowerCase() === 'critical').length);
-
-// Top 5 Recent Alerts (already sorted by severity in main.js, so just take top 5)
-const topRecentAlerts = computed(() => store.activeAlerts.slice(0, 5));
-
-// Latest 5 Predictions (sort by timestamp, take top 5)
-const latestPredictions = computed(() => {
-    return [...filteredCattle.value]
+// --- Recent Critical Alerts (Computed from store.activeAlerts) ---
+const recentCriticalAlerts = computed(() => {
+    return store.activeAlerts
+        .filter(alert => alert.severity.toLowerCase() === 'critical')
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 5);
+        .slice(0, 3); // Display top 3 critical alerts
 });
+
+// --- Dummy Trend Data for Charts (Static for now, but can be derived from store.cattleData history later) ---
+// In a full application, these would be aggregated from historical `store.cattleData`.
+const trendData = reactive({
+    riskLevel: [10, 15, 12, 18, 16, 20, 17], // Example values, higher = worse
+    feverIndex: [2.1, 2.3, 2.2, 2.5, 2.4, 2.6, 2.5], // Example values, higher = worse
+    productivityScore: [85, 88, 86, 90, 89, 92, 91], // Example values, higher = better
+    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+});
+
+
+// Modal state
+const showAddAnimalModal = ref(false);
+const openAddAnimalModal = () => {
+    showAddAnimalModal.value = true;
+};
+const closeAddAnimalModal = () => {
+    showAddAnimalModal.value = false;
+};
+
+// --- Chart Initialization and Update Functions ---
+
+const createChart = (canvasRef, chartType, data, options) => {
+    if (canvasRef && canvasRef.value) {
+        const ctx = canvasRef.value.getContext('2d');
+        if (window.Chart.getChart(ctx)) { // Use window.Chart
+            window.Chart.getChart(ctx).destroy(); // Use window.Chart
+        }
+        return new window.Chart(ctx, { // Use window.Chart
+            type: chartType,
+            data: data,
+            options: options
+        });
+    }
+    return null;
+};
+
+const updateAllCharts = () => {
+    // Overall Herd Risk Level Chart
+    riskLevelChart = createChart(riskLevelChartCanvas, 'line', {
+        labels: trendData.labels,
+        datasets: [{
+            label: 'Risk Level',
+            data: trendData.riskLevel,
+            borderColor: '#F57C00', // Matches alert-high-border
+            backgroundColor: 'rgba(245, 124, 0, 0.2)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#F57C00',
+            pointBorderColor: '#FFF',
+            pointHoverBackgroundColor: '#FFF',
+            pointHoverBorderColor: '#F57C00',
+        }]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            title: { display: false }
+        },
+        scales: {
+            x: {
+                title: { display: true, text: 'Day', color: 'var(--text-secondary)' },
+                ticks: { color: 'var(--text-dark)' },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            y: {
+                title: { display: true, text: 'Risk Level (Score)', color: 'var(--text-secondary)' },
+                beginAtZero: true,
+                ticks: { color: 'var(--text-dark)' },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            }
+        }
+    });
+
+    // Average Fever Index Chart
+    feverIndexChart = createChart(feverIndexChartCanvas, 'line', {
+        labels: trendData.labels,
+        datasets: [{
+            label: 'Fever Index',
+            data: trendData.feverIndex,
+            borderColor: '#D32F2F', // Matches alert-critical-border
+            backgroundColor: 'rgba(211, 47, 47, 0.2)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#D32F2F',
+            pointBorderColor: '#FFF',
+            pointHoverBackgroundColor: '#FFF',
+            pointHoverBorderColor: '#D32F2F',
+        }]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            title: { display: false }
+        },
+        scales: {
+            x: {
+                title: { display: true, text: 'Day', color: 'var(--text-secondary)' },
+                ticks: { color: 'var(--text-dark)' },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            y: {
+                title: { display: true, text: 'Fever Index (Avg. Deviation)', color: 'var(--text-secondary)' },
+                beginAtZero: true,
+                ticks: { color: 'var(--text-dark)' },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            }
+        }
+    });
+
+    // Average Productivity Score Chart
+    productivityScoreChart = createChart(productivityScoreChartCanvas, 'line', {
+        labels: trendData.labels,
+        datasets: [{
+            label: 'Productivity Score',
+            data: trendData.productivityScore,
+            borderColor: '#4CAF50', // Matches primary-color
+            backgroundColor: 'rgba(76, 175, 80, 0.2)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#4CAF50',
+            pointBorderColor: '#FFF',
+            pointHoverBackgroundColor: '#FFF',
+            pointHoverBorderColor: '#4CAF50',
+        }]
+    }, {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            title: { display: false }
+        },
+        scales: {
+            x: {
+                title: { display: true, text: 'Day', color: 'var(--text-secondary)' },
+                ticks: { color: 'var(--text-dark)' },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            y: {
+                title: { display: true, text: 'Productivity (Score)', color: 'var(--text-secondary)' },
+                beginAtZero: true,
+                ticks: { color: 'var(--text-dark)' },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            }
+        }
+    });
+};
+
+
+// --- Lifecycle Hooks ---
+onMounted(() => {
+    updateAllCharts(); // Initial chart rendering
+
+    // Watch for changes in store.cattleData or store.activeAlerts
+    // Although trendData is static, herdHealth and recentCriticalAlerts update reactively.
+    // If you were to make trendData dynamic based on store.cattleData,
+    // you would include store.cattleData as a dependency here.
+    watch(() => store.cattleData.length, () => {
+        // Recalculate herdHealth and critical alerts implicitly
+        // Re-render charts only if their underlying data also changes (which trendData doesn't right now)
+        // If trendData was computed from store.cattleData, updateAllCharts would be needed here.
+    });
+    watch(() => store.activeAlerts.length, () => {
+        // Recalculate recentCriticalAlerts
+    });
+});
+
+onUnmounted(() => {
+    // Destroy charts when component unmounts to prevent memory leaks
+    if (riskLevelChart) riskLevelChart.destroy();
+    if (feverIndexChart) feverIndexChart.destroy();
+    if (productivityScoreChart) productivityScoreChart.destroy();
+});
+
+
+// --- Utility Functions (also available to template) ---
+
+// Formats timestamp for display (e.g., "Jun 5, 10:00 AM")
+const formatTimestamp = (timestampString) => {
+    if (!timestampString) return 'N/A';
+    const date = new Date(timestampString);
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
+};
 </script>
 
 <style scoped>
-/* Main card container handled by global styles */
+/* Scoped styles for DashboardOverview component */
+/* Using existing global variable names for consistency */
 
-.card-title-small {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-
-.summary-grid {
+.health-status-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 25px;
     margin-bottom: 25px;
 }
 
-.summary-card {
+.status-card {
     background-color: var(--card-bg);
-    padding: 20px;
+    padding: 25px;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     text-align: center;
     border: 1px solid var(--border-color);
     transition: transform 0.2s ease;
 }
 
-.summary-card:hover {
+.status-card:hover {
     transform: translateY(-5px);
 }
 
-.summary-card i {
-    font-size: 2.5em;
-    margin-bottom: 15px;
-    color: var(--primary-color); /* Default icon color */
-}
-
-.summary-card h3 {
-    font-size: 1.1em;
-    font-weight: 600;
+.status-card h3 {
+    margin-top: 0;
     margin-bottom: 10px;
     color: var(--text-dark);
+    font-size: 1.15em;
+    font-weight: 600;
 }
 
-.summary-card .metric {
-    font-size: 2.5em;
+.status-card i {
+    font-size: 2.8em;
+    margin-bottom: 15px;
+}
+
+.status-card .count {
+    font-size: 2.2em;
     font-weight: 800;
-    color: var(--primary-dark);
     margin: 0;
 }
 
-/* Specific colors for summary cards */
-.summary-card.total-cattle i { color: #1976D2; } /* Blue */
-.summary-card.healthy-cattle i { color: var(--primary-color); } /* Green */
-.summary-card.unhealthy-cattle i { color: var(--alert-critical-border); } /* Red */
-.summary-card.critical-alerts i { color: var(--alert-high-border); } /* Orange/Warning */
-
-
-/* Alert Card Small (reused for top alerts) */
-.alert-card-small {
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.05);
-    border-left: 5px solid;
-    margin-bottom: 10px;
-}
-
-.alert-card-small.critical { background-color: var(--alert-critical-bg); border-color: var(--alert-critical-border); }
-.alert-card-small.high { background-color: var(--alert-high-bg); border-color: var(--alert-high-border); }
-.alert-card-small.medium { background-color: var(--alert-medium-bg); border-color: var(--alert-medium-border); }
-.alert-card-small.low-medium { background-color: var(--alert-low-medium-bg); border-color: var(--alert-low-medium-border); }
-.alert-card-small.low { background-color: var(--alert-low-bg); border-color: var(--alert-low-border); }
-
-.alert-card-small p { margin-bottom: 3px; }
-.alert-card-small .font-semibold { font-weight: 600; color: var(--text-dark); }
-.alert-card-small .font-bold { font-weight: 700; color: var(--text-dark); }
-.alert-card-small .text-sm { font-size: 0.85em; color: var(--text-secondary); }
-.alert-card-small .text-md { font-size: 0.95em; }
-
-
-/* Prediction Summary Card */
-.prediction-summary-card {
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.05);
-    border-left: 5px solid;
-    margin-bottom: 10px;
-    background-color: var(--card-bg); /* Use card background for consistency */
-}
-/* Re-use risk-based colors from global styles */
-.prediction-summary-card.risk-critical { border-color: var(--alert-critical-border); }
-.prediction-summary-card.risk-high { border-color: var(--alert-high-border); }
-.prediction-summary-card.risk-medium { border-color: var(--alert-medium-border); }
-.prediction-summary-card.risk-low-medium { border-color: var(--alert-low-medium-border); }
-.prediction-summary-card.risk-low { border-color: var(--alert-low-border); }
-.prediction-summary-card.risk-default { border-color: var(--border-color); }
-
-
-.prediction-summary-card p { margin-bottom: 3px; }
-.prediction-summary-card .font-semibold { font-weight: 600; color: var(--text-dark); }
-.prediction-summary-card .font-bold { font-weight: 700; color: var(--text-dark); }
-.prediction-summary-card .text-sm { font-size: 0.85em; color: var(--text-secondary); }
-.prediction-summary-card .text-md { font-size: 0.95em; }
-
-
-.view-more-link {
+.status-card .percentage {
     display: block;
-    text-align: right;
-    margin-top: 15px;
-    color: var(--primary-color);
+    font-size: 1em;
+    color: var(--text-secondary);
+    margin-top: 5px;
+}
+
+/* Specific colors for status cards */
+.status-card.health-healthy i, .status-card.health-healthy .count { color: var(--primary-color); }
+.status-card.health-at-risk i, .status-card.health-at-risk .count { color: var(--alert-critical-border); }
+.status-card.health-observation i, .status-card.health-observation .count { color: var(--alert-high-border); }
+
+
+/* Recent Alerts Card */
+.recent-alerts-card {
+    padding: 30px;
+}
+.recent-alerts-card .card-title-small {
+    margin-bottom: 20px;
+}
+
+.alert-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 20px;
+}
+
+.alert-item {
+    background-color: var(--alert-critical-bg);
+    border: 1px solid var(--alert-critical-border);
+    border-left: 8px solid var(--alert-critical-border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    padding: 15px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.alert-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.alert-link {
+    display: flex;
+    align-items: center;
     text-decoration: none;
+    color: var(--text-dark);
+    font-weight: 500;
+}
+
+.alert-icon {
+    font-size: 1.4em;
+    color: var(--alert-critical-border);
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.alert-message-text {
+    flex-grow: 1;
+    color: var(--alert-critical-text);
     font-weight: 600;
+    font-size: 1.05em;
+    line-height: 1.4;
+}
+
+.alert-timestamp {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-left: 20px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.view-all-alerts-button {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-top: 20px;
+    font-size: 1em;
+    font-weight: 600;
+    display: block; /* Make it a block button */
+    width: fit-content;
+    margin-left: auto; /* Push to right */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.view-all-alerts-button:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+
+/* Metric Trends Grid */
+.metric-trends-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 25px;
+}
+
+.trend-chart-card {
+    min-height: 350px; /* Ensure enough space for charts */
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    max-height: 300px; /* Max height to control chart size */
+}
+.chart-container canvas {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.chart-description {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+}
+
+
+/* Quick Actions Card */
+.quick-actions-card {
+    padding: 30px;
+}
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.action-button {
+    padding: 15px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1.05em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.action-button i {
+    margin-right: 8px;
+}
+
+.primary-action {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+}
+.primary-action:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+.secondary-action {
+    background-color: #ECEFF1; /* Light grey */
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+}
+.secondary-action:hover {
+    background-color: #CFD8DC; /* Darker grey */
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+.tertiary-action {
+    background-color: #BBDEFB; /* Light blue */
+    color: #1565C0; /* Darker blue */
+    border: 1px solid #90CAF9;
+}
+.tertiary-action:hover {
+    background-color: #90CAF9;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+
+/* Modal Styling */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background-color: var(--card-bg);
+    padding: 40px 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    position: relative;
+    max-width: 500px;
+    width: 90%;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal .close-icon {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 2em;
+    cursor: pointer;
+    color: var(--text-secondary);
     transition: color 0.2s ease;
 }
-.view-more-link:hover {
-    color: var(--primary-dark);
-    text-decoration: underline;
+.modal .close-icon:hover {
+    color: var(--text-dark);
 }
-.view-more-link i {
-    margin-left: 5px;
+
+.modal h3 {
+    margin-top: 0;
+    font-size: 1.8em;
+    color: var(--text-dark);
+    margin-bottom: 15px;
 }
+.modal-message {
+    font-size: 1.1em;
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+}
+.modal-close-button {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.05em;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+.modal-close-button:hover {
+    background-color: var(--primary-dark);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
-    .summary-grid {
+    .health-status-grid, .metric-trends-grid, .quick-actions-grid {
         grid-template-columns: 1fr;
+    }
+    .status-card, .trend-chart-card {
+        min-height: auto;
+    }
+    .alert-item {
+        padding: 12px;
+    }
+    .alert-icon {
+        font-size: 1.2em;
+        margin-right: 10px;
+    }
+    .alert-message-text {
+        font-size: 0.95em;
+    }
+    .alert-timestamp {
+        font-size: 0.7em;
+        margin-left: 10px;
+    }
+    .view-all-alerts-button {
+        width: 100%;
+        margin-right: auto; /* Center button on small screens */
+        margin-left: auto;
     }
 }
 </style>

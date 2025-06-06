@@ -16,6 +16,17 @@
                 </router-link>
             </li>
             <li>
+                <router-link to="/add-data" active-class="active" class="nav-link">
+                    <i class="fa-solid fa-plus-circle fa-icon"></i> Add Cattle Data
+                </router-link>
+            </li>
+            <!-- --- NEW LINK FOR CATTLE PREDICTION TOOL --- -->
+            <li>
+                <router-link to="/predict-cattle" active-class="active" class="nav-link">
+                    <i class="fa-solid fa-stethoscope fa-icon"></i> Cattle Prediction
+                </router-link>
+            </li>
+            <li>
                 <router-link to="/dashboard/cattle" active-class="active" class="nav-link">
                     <i class="fa-solid fa-info-circle fa-icon"></i> Cattle Information
                 </router-link>
@@ -40,17 +51,7 @@
                     <i class="fa-solid fa-cog fa-icon"></i> Settings/Help
                 </router-link>
             </li>
-            <li>
-                <router-link to="/add-data" active-class="active" class="nav-link">
-                    <i class="fa-solid fa-plus-circle fa-icon"></i> Add Cattle Data
-                </router-link>
-            </li>
-            <!-- --- NEW LINK FOR CATTLE PREDICTION TOOL --- -->
-            <li>
-                <router-link to="/predict-cattle" active-class="active" class="nav-link">
-                    <i class="fa-solid fa-stethoscope fa-icon"></i> Cattle Prediction
-                </router-link>
-            </li>
+            
         </ul>
         <div class="user-info">
             User ID: <span class="user-id-text">{{ userId }}</span>

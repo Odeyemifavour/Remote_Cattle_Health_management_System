@@ -10,7 +10,6 @@ import PredictionLog from '../components/predictions/PredictionLog.vue';
 import Reports from '../views/Reports.vue';
 import SettingsHelp from '../views/SettingsHelp.vue';
 import AddCattleData from '../components/forms/AddCattleData.vue';
-// --- NEW IMPORT: For the new prediction tool ---
 import CattlePredictionTool from '../views/CattlePredictionTool.vue'; // New component for API interaction
 
 const routes = [
@@ -18,13 +17,17 @@ const routes = [
     { path: '/dashboard/herd-dashboard', component: HerdDashboard },
     { path: '/dashboard/cattle', component: CattleInformation },
     { path: '/alerts', component: AlertsNotifications },
-    { path: '/prediction-log', component: PredictionLog },
+    // Route for ALL predictions (no cattleId specified)
+    { path: '/prediction-log', name: 'PredictionLogAll', component: PredictionLog },
+    // NEW: Route for a SPECIFIC cattle's prediction log
+    // The ':cattleId' is a dynamic segment that will be passed as a prop
+    { path: '/prediction-log/:cattleId', name: 'PredictionLogSpecific', component: PredictionLog, props: true },
     { path: '/dashboard/reports', component: Reports },
     { path: '/dashboard/settings-and-help', component: SettingsHelp },
     { path: '/add-data', component: AddCattleData },
-    // --- NEW ROUTE: To access the Cattle Prediction Tool ---
+    // New Route for the Cattle Prediction Tool
     { path: '/predict-cattle', component: CattlePredictionTool },
-    { path: '/', redirect: '/dashboard' }
+    { path: '/', redirect: '/dashboard' } // Default route
 ];
 
 const router = createRouter({
