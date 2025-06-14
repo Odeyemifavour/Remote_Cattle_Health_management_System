@@ -10,23 +10,23 @@ import PredictionLog from '../components/predictions/PredictionLog.vue';
 import Reports from '../views/Reports.vue';
 import SettingsHelp from '../views/SettingsHelp.vue';
 import AddCattleData from '../components/forms/AddCattleData.vue';
-import CattlePredictionTool from '../views/CattlePredictionTool.vue'; // New component for API interaction
+import CattlePredictionTool from '../views/CattlePredictionTool.vue'; 
+import RealtimeSimulator from '../views/RealtimeSimulator.vue'; 
+
 
 const routes = [
     { path: '/dashboard', component: DashboardOverview },
     { path: '/dashboard/herd-dashboard', component: HerdDashboard },
     { path: '/dashboard/cattle', component: CattleInformation },
     { path: '/alerts', component: AlertsNotifications },
-    // Route for ALL predictions (no cattleId specified)
     { path: '/prediction-log', name: 'PredictionLogAll', component: PredictionLog },
-    // NEW: Route for a SPECIFIC cattle's prediction log
-    // The ':cattleId' is a dynamic segment that will be passed as a prop
     { path: '/prediction-log/:cattleId', name: 'PredictionLogSpecific', component: PredictionLog, props: true },
     { path: '/dashboard/reports', component: Reports },
     { path: '/dashboard/settings-and-help', component: SettingsHelp },
     { path: '/add-data', component: AddCattleData },
-    // New Route for the Cattle Prediction Tool
     { path: '/predict-cattle', component: CattlePredictionTool },
+    // NEW: Route for the Real-time Data Simulator
+    { path: '/realtime-simulation', component: RealtimeSimulator }, 
     { path: '/', redirect: '/dashboard' } // Default route
 ];
 

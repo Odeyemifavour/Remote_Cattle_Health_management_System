@@ -24,6 +24,7 @@
                     <option value="Cross Breed">Cross Breed</option>
                     <option value="Holstein">Holstein</option>
                     <option value="Jersey">Jersey</option>
+                    <option value="Indigenous Breed">Indigenous Breed</option> <!-- Added this option -->
                     <option value="Other">Other</option>
                 </select>
             </div>
@@ -75,6 +76,8 @@
                     <option value="Black faece">Black faece</option>
                     <option value="extremely firm">extremely firm</option>
                     <option value="firm">firm</option>
+                    <option value="Fresh blood in faeces">Fresh blood in faeces</option> <!-- Added this option -->
+                    <option value="very liquid faeces">very liquid faeces</option> <!-- Added this option -->
                 </select>
             </div>
 
@@ -90,7 +93,9 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { store } from '../../main.js'; // Ensure this path is correct
-import { doc, setDoc } from 'firebase/firestore';
+// Removed direct Firestore import as saving is now handled by Flask API,
+// but leaving it commented out for context if needed for other operations
+// import { doc, setDoc } from 'firebase/firestore'; 
 
 const formData = reactive({
     cattle_id: '',
@@ -108,21 +113,22 @@ const submitData = async () => {
     successMessage.value = '';
 
     if (!store.userId) {
-        store.error = "Authentication not ready. Please wait or refresh.";
+        store.error = "Authentication not ready. Please wait or refresh. User ID missing.";
         store.loading = false;
         return;
     }
 
     try {
-        // --- Prepare data for Flask API to match expected format ---
-        // Create a copy of the raw data to send to the API
-        const rawInputData = { ...formData };
-        delete rawInputData.cattle_id; // Remove cattle_id as it's not a direct model feature
+        // Prepare data for Flask API
+        const dataToSend = { ...formData };
 
-        const response = await fetch(store.flaskApiUrl, { // Using corrected API URL from store
+        const response = await fetch(store.flaskApiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(rawInputData), // Send the raw input data
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': store.userId // Pass userId from store to Flask API
+            },
+            body: JSON.stringify(dataToSend),
         });
 
         if (!response.ok) {
@@ -131,14 +137,9 @@ const submitData = async () => {
         }
 
         const result = await response.json();
-        console.log('Prediction Result from Flask:', result);
+        console.log('Prediction Result from Flask (and saved to Firestore by Flask):', result);
 
-        // --- Save the complete API response (which includes ML predictions and alerts) to Firestore ---
-        // Ensure the document ID is cattle_id as per your Firestore structure
-        const cattleDocRef = doc(store.db, `artifacts/${store.appId}/users/${store.userId}/cattle_data`, result.cattle_id);
-        await setDoc(cattleDocRef, result);
-
-        successMessage.value = `Data for Cattle ID "${result.cattle_id}" submitted and saved successfully!`;
+        successMessage.value = `Data for Cattle ID "${result.cattle_id}" submitted and processed successfully!`;
         // Reset form after successful submission
         formData.cattle_id = '';
         formData.body_temperature = null;

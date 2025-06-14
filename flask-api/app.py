@@ -1,3 +1,5 @@
+# app.py (Your Flask application file)
+
 print("--- APP.PY EXECUTION STARTED ---")
 
 import pandas as pd
@@ -6,6 +8,9 @@ from flask_cors import CORS
 import joblib
 import numpy as np
 import datetime
+import os
+# NEW: Import Firestore
+from google.cloud import firestore
 
 # --- 1. Load the pre-trained model and preprocessing tools ---
 try:
@@ -17,10 +22,30 @@ try:
     print("Model, Scaler, and LabelEncoders loaded successfully!")
 except FileNotFoundError as e:
     print(f"Error loading a required file: {e}. Make sure all .joblib files are in the same directory.")
-    exit()
+    exit() # Exit if models aren't loaded, as app won't function
 except Exception as e:
     print(f"An unexpected error occurred during loading: {e}")
-    exit()
+    exit() # Exit if models aren't loaded
+
+# --- NEW: Initialize Firebase/Firestore ---
+# IMPORTANT: For local development, you need to set up Google Cloud credentials.
+# The simplest way is to download a service account key JSON file
+# from your Firebase project settings (Project settings -> Service accounts -> Generate new private key).
+# Then, set an environment variable:
+# export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service_account_key.json"
+# Or, you can pass the path directly:
+# db = firestore.Client.from_service_account_json("/path/to/your/service_account_key.json")
+
+# For Canvas environment, credentials are automatically handled.
+# For local testing, ensure GOOGLE_APPLICATION_CREDENTIALS is set.
+db = None # Initialize to None
+try:
+    db = firestore.Client()
+    print("Firestore client initialized using default credentials.")
+except Exception as e:
+    print(f"Flask Warning: Failed to initialize Firestore client. Error: {e}")
+    print("Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set for local runs.")
+
 
 # --- IMPORTANT: Define the EXACT feature order from your training ---
 # This list comes directly from your training script's output!
@@ -35,31 +60,143 @@ training_features_for_model = [
 original_categorical_cols = ['breed_type', 'faecal_consistency']
 
 # --- Helper Function for Rule-Based Alerts ---
-# Make sure this function matches the one in your training environment.
+# Updated THRESHOLDS to include all faecal consistency options from frontend
 def get_rule_based_alerts(data):
     detected_diseases = []
-    alerts = []
-    abnormal_count = 0
+    generated_alerts = [] # Renamed from 'alerts' for clarity
+    abnormal_indicator_count = 0
 
-    # Example rules (replace with your actual rules)
-    if data.get('body_temperature') > 39.5:
-        alerts.append({"indicator": "Body Temperature", "value": data['body_temperature'], "threshold": ">39.5", "severity": "High", "message": "High body temperature detected."})
-        abnormal_count += 1
-    if data.get('respiratory_rate') > 40:
-        alerts.append({"indicator": "Respiratory Rate", "value": data['respiratory_rate'], "threshold": ">40", "severity": "Medium", "message": "Elevated respiratory rate."})
-        abnormal_count += 1
-    if data.get('faecal_consistency') in ['watery', 'Black faece']:
-        alerts.append({"indicator": "Faecal Consistency", "value": data['faecal_consistency'], "threshold": "watery/Black faece", "severity": "High", "message": "Abnormal faecal consistency."})
-        abnormal_count += 1
-        detected_diseases.append("Diarrhea")
+    # Centralized thresholds for readability and easy modification
+    THRESHOLDS = {
+        'body_temperature_high_respiratory': 39.5,
+        'respiratory_rate_high_respiratory': 40,
+        # Updated to include all relevant faecal consistencies from your frontend select options
+        'faecal_consistency_abnormal': ['watery', 'black faece', 'fresh blood in faeces', 'very liquid faeces'],
+        'milk_production_low': 8.0,
+        'body_condition_score_low_reproductive': 2.5,
+        'heart_rate_high_reproductive': 80,
+        'walking_capacity_low': 9000,
+        'body_temperature_high_systemic': 39.8,
+        'heart_rate_high_systemic': 80,
+        'respiratory_rate_high_systemic': 42,
+    }
 
-    # Example for Mastitis (hypothetical combined indicators)
-    if data.get('body_temperature') > 39.0 and data.get('milk_production') < 10:
-        if "Mastitis" not in detected_diseases:
-            detected_diseases.append("Mastitis")
-        alerts.append({"indicator": "Mastitis Indicators", "value": "Combined", "threshold": "High temp & low milk", "severity": "Critical", "message": "Potential Mastitis based on combined indicators."})
+    # Respiratory Disease
+    if data.get('body_temperature', 0) > THRESHOLDS['body_temperature_high_respiratory'] and \
+       data.get('respiratory_rate', 0) > THRESHOLDS['respiratory_rate_high_respiratory']:
+        detected_diseases.append('Respiratory Disease')
+        generated_alerts.append({
+            'symptom': 'body_temperature',
+            'value': data.get('body_temperature'),
+            'message': f"High body temperature detected ({data.get('body_temperature')}°C)!",
+            'severity': 'Medium',
+            'rule_triggered': 'Respiratory_Temp'
+        })
+        generated_alerts.append({
+            'symptom': 'respiratory_rate',
+            'value': data.get('respiratory_rate'),
+            'message': f"High respiratory rate detected ({data.get('respiratory_rate')} breaths/min)!",
+            'severity': 'Medium',
+            'rule_triggered': 'Respiratory_Rate'
+        })
+        abnormal_indicator_count += 2
 
-    return detected_diseases, alerts, abnormal_count
+    # GI Disease
+    faecal_consistency = data.get('faecal_consistency', '').lower()
+    if faecal_consistency in THRESHOLDS['faecal_consistency_abnormal']:
+        detected_diseases.append('Gastrointestinal Disease')
+        generated_alerts.append({
+            'symptom': 'faecal_consistency',
+            'value': data.get('faecal_consistency'),
+            'message': f"Abnormal faecal consistency detected ({data.get('faecal_consistency')})!",
+            'severity': 'High',
+            'rule_triggered': 'GI_Feces'
+        })
+        abnormal_indicator_count += 1
+
+    # Udder Health Issue
+    if data.get('milk_production', 0) < THRESHOLDS['milk_production_low']:
+        detected_diseases.append('Udder Health Issue')
+        generated_alerts.append({
+            'symptom': 'milk_production',
+            'value': data.get('milk_production'),
+            'message': f"Very low milk production detected ({data.get('milk_production')} L/day)!",
+            'severity': 'Medium',
+            'rule_triggered': 'Udder_MilkProd'
+        })
+        abnormal_indicator_count += 1
+
+    # Reproductive Disease
+    if data.get('body_condition_score', 0) < THRESHOLDS['body_condition_score_low_reproductive'] and \
+       data.get('heart_rate', 0) > THRESHOLDS['heart_rate_high_reproductive']:
+        detected_diseases.append('Reproductive Disease')
+        generated_alerts.append({
+            'symptom': 'body_condition_score',
+            'value': data.get('body_condition_score'),
+            'message': f"Low body condition score detected ({data.get('body_condition_score')})!",
+            'severity': 'Medium',
+            'rule_triggered': 'Reproductive_BCS'
+        })
+        generated_alerts.append({
+            'symptom': 'heart_rate',
+            'value': data.get('heart_rate'),
+            'message': f"High heart rate detected ({data.get('heart_rate')} bpm)!",
+            'severity': 'Medium',
+            'rule_triggered': 'Reproductive_HR'
+        })
+        abnormal_indicator_count += 2
+
+    # Musculoskeletal Issue
+    if data.get('walking_capacity', 0) < THRESHOLDS['walking_capacity_low']:
+        detected_diseases.append('Lameness / Musculoskeletal Issue')
+        generated_alerts.append({
+            'symptom': 'walking_capacity',
+            'value': data.get('walking_capacity'),
+            'message': f"Low walking capacity detected ({data.get('walking_capacity')} steps/day)!",
+            'severity': 'High',
+            'rule_triggered': 'Musculoskeletal_Walking'
+        })
+        abnormal_indicator_count += 1
+
+    # Systemic Infection
+    if data.get('body_temperature', 0) > THRESHOLDS['body_temperature_high_systemic'] and \
+       data.get('heart_rate', 0) > THRESHOLDS['heart_rate_high_systemic'] and \
+       data.get('respiratory_rate', 0) > THRESHOLDS['respiratory_rate_high_systemic']:
+        detected_diseases.append('Systemic Infection')
+        generated_alerts.append({
+            'symptom': 'body_temperature',
+            'value': data.get('body_temperature'),
+            'message': f"Critically high body temperature detected ({data.get('body_temperature')}°C)!",
+            'severity': 'Critical',
+            'rule_triggered': 'Systemic_Temp'
+        })
+        generated_alerts.append({
+            'symptom': 'heart_rate',
+            'value': data.get('heart_rate'),
+            'message': f"Critically high heart rate detected ({data.get('heart_rate')} bpm)!",
+            'severity': 'Critical',
+            'rule_triggered': 'Systemic_HR'
+        })
+        generated_alerts.append({
+            'symptom': 'respiratory_rate',
+            'value': data.get('respiratory_rate'),
+            'message': f"Critically high respiratory rate detected ({data.get('respiratory_rate')} breaths/min)!",
+            'severity': 'Critical',
+            'rule_triggered': 'Systemic_RR'
+        })
+        abnormal_indicator_count += 3
+
+    # Remove duplicate alert messages and sort by severity
+    unique_alerts_by_message = {}
+    for alert in generated_alerts:
+        unique_alerts_by_message[alert['message']] = alert
+    final_alerts_list = list(unique_alerts_by_message.values())
+
+    severity_order = {'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1}
+    final_alerts_list.sort(key=lambda x: severity_order.get(x.get('severity', 'Low'), 0), reverse=True)
+
+    return list(set(detected_diseases)), final_alerts_list, abnormal_indicator_count
+
 
 # --- 2. Initialize Flask App ---
 app = Flask(__name__)
@@ -67,7 +204,7 @@ CORS(app)
 
 # --- 3. Define the /predict API endpoint ---
 @app.route('/predict', methods=['POST'])
-def predict():
+async def predict(): # Changed to async for potential async Firestore operations
     if not request.is_json:
         return jsonify({"error": "Request must be JSON"}), 400
 
@@ -99,35 +236,29 @@ def predict():
     if breed_type_val in le_breed.classes_:
         input_df['breed_type_enc'] = le_breed.transform([breed_type_val])[0]
     else:
-        # Fallback: Use the encoding for the first class, or a pre-defined 'unknown' if you have one
         fallback_breed_type_idx = 0 # Index of the first class in le_breed.classes_
         print(f"Warning: Unseen breed_type '{breed_type_val}' in input. Encoding as '{le_breed.classes_[fallback_breed_type_idx]}' ({fallback_breed_type_idx}).")
-        input_df['breed_type_enc'] = fallback_breed_type_idx # Assign the integer encoding
+        input_df['breed_type_enc'] = fallback_breed_type_idx
 
     # Handle 'faecal_consistency'
     faecal_consistency_val = input_df['faecal_consistency'].iloc[0]
     if faecal_consistency_val in le_faecal.classes_:
         input_df['faecal_consistency_enc'] = le_faecal.transform([faecal_consistency_val])[0]
     else:
-        # Fallback: Use the encoding for the first class, or a pre-defined 'unknown' if you have one
         fallback_faecal_idx = 0 # Index of the first class in le_faecal.classes_
         print(f"Warning: Unseen faecal_consistency '{faecal_consistency_val}' in input. Encoding as '{le_faecal.classes_[fallback_faecal_idx]}' ({fallback_faecal_idx}).")
-        input_df['faecal_consistency_enc'] = fallback_faecal_idx # Assign the integer encoding
+        input_df['faecal_consistency_enc'] = fallback_faecal_idx
 
     # Drop the original categorical columns now that they are encoded
     input_df = input_df.drop(columns=original_categorical_cols)
 
     # --- Prepare final DataFrame for model by selecting and ordering features ---
-    # Create an empty DataFrame with the exact columns and order expected by the model
     final_input_df_for_model = pd.DataFrame(0, index=input_df.index, columns=training_features_for_model)
 
-    # Populate it with the values from our processed input_df
     for col in training_features_for_model:
         if col in input_df.columns:
             final_input_df_for_model[col] = input_df[col]
         else:
-            # This should ideally not happen if features are correctly handled,
-            # but acts as a safeguard. Missing engineered features would be 0.
             print(f"Warning: Feature '{col}' not found in processed input_df. Using default 0.")
 
     # Ensure all columns are numeric before scaling
@@ -138,7 +269,6 @@ def predict():
             final_input_df_for_model[col].fillna(0, inplace=True)
 
     # --- Scale features with the scaler fitted on training data ---
-    # The scaler expects a NumPy array, but it will respect the order of columns if passed a DataFrame
     X_processed_scaled = scaler.transform(final_input_df_for_model)
 
     # Make prediction
@@ -176,17 +306,20 @@ def predict():
             for alert in structured_alerts_list:
                 if alert.get('severity') == 'Critical':
                     overall_risk_level = "Critical"
+                    overall_health_status = "Unhealthy" # If critical alert, always unhealthy
                     break
-                elif alert.get('severity') == 'High' and overall_risk_level != "Critical":
+                elif alert.get('severity') == 'High' and overall_risk_level not in ["Critical"]:
                     overall_risk_level = "High"
+                    if overall_health_status == "Healthy": # If ML was healthy but rule is high
+                        overall_health_status = "Unhealthy"
                 elif overall_risk_level not in ["Critical", "High"]: # Only upgrade to Medium if not already Critical/High
                     if alert.get('severity') == 'Medium':
                         overall_risk_level = "Medium"
-
-        overall_health_status = "Unhealthy"
+                        if overall_health_status == "Healthy": # If ML was healthy but rule is medium
+                            overall_health_status = "Observation" # Set to 'Observation' if ML was healthy but medium rule triggered
 
     # Final structured output dictionary
-    response = {
+    response_data = {
         "cattle_id": data.get('cattle_id', 'Unknown'),
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "monitoring_results": {
@@ -198,12 +331,42 @@ def predict():
             "predicted_class": predicted_health_status,
             "prediction_probabilities": probability_dict
         },
-        "specific_diseases_detected": rule_based_diseases,
+        "specific_diseases_detected": list(set(detected_diseases)),
         "alerts": structured_alerts_list,
         "input_data_snapshot": data
     }
 
-    return jsonify(response)
+    # --- NEW CRUCIAL STEP: Save to Firestore ---
+    if db:
+        try:
+            # Get userId from the frontend (e.g., from a custom header or passed in payload)
+            # For this example, we assume userId is sent via 'X-User-Id' header from frontend
+            # In your main.js, store.userId would be available, so you'd add:
+            # headers: { 'Content-Type': 'application/json', 'X-User-Id': store.userId },
+            user_id = request.headers.get('X-User-Id')
+            if not user_id:
+                print("Flask Warning: 'X-User-Id' header not found. Using 'anonymous_flask_user'.")
+                user_id = 'anonymous_flask_user'
+            
+            # Use __app_id from Canvas environment if available, else a placeholder for local development
+            app_id = os.environ.get('CANVAS_APP_ID', 'default_app_id_for_local') 
+
+            # Ensure cattle_id exists for the document ID
+            if response_data.get('cattle_id'):
+                doc_ref = db.collection(f'artifacts/{app_id}/users/{user_id}/cattle_data').document(response_data['cattle_id'])
+                # Use await for set if you are using an async Flask setup (e.g., ASGI server)
+                # For standard WSGI (default Flask), just use doc_ref.set()
+                doc_ref.set(response_data) 
+                print(f"Flask: Data for Cattle ID {response_data['cattle_id']} saved to Firestore successfully for user {user_id}.")
+            else:
+                print("Flask Warning: cattle_id missing in response_data, skipping Firestore save.")
+        except Exception as firestore_e:
+            print(f"Flask ERROR: Failed to save data to Firestore: {firestore_e}")
+            # Log error but do not prevent prediction from being returned to frontend
+    else:
+        print("Flask: Firestore client not initialized, skipping database save.")
+
+    return jsonify(response_data)
 
 # --- 4. Run the Flask App ---
 if __name__ == '__main__':
