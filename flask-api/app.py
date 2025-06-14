@@ -9,7 +9,6 @@ import joblib
 import numpy as np
 import datetime
 import os
-# NEW: Import Firestore
 from google.cloud import firestore
 
 # --- 1. Load the pre-trained model and preprocessing tools ---
@@ -27,17 +26,7 @@ except Exception as e:
     print(f"An unexpected error occurred during loading: {e}")
     exit() # Exit if models aren't loaded
 
-# --- NEW: Initialize Firebase/Firestore ---
-# IMPORTANT: For local development, you need to set up Google Cloud credentials.
-# The simplest way is to download a service account key JSON file
-# from your Firebase project settings (Project settings -> Service accounts -> Generate new private key).
-# Then, set an environment variable:
-# export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service_account_key.json"
-# Or, you can pass the path directly:
-# db = firestore.Client.from_service_account_json("/path/to/your/service_account_key.json")
-
-# For Canvas environment, credentials are automatically handled.
-# For local testing, ensure GOOGLE_APPLICATION_CREDENTIALS is set.
+# --- Initialize Firebase/Firestore ---
 db = None # Initialize to None
 try:
     db = firestore.Client()
@@ -48,7 +37,6 @@ except Exception as e:
 
 
 # --- IMPORTANT: Define the EXACT feature order from your training ---
-# This list comes directly from your training script's output!
 training_features_for_model = [
     'body_temperature', 'breed_type_enc', 'milk_production', 'respiratory_rate',
     'walking_capacity', 'sleeping_duration', 'body_condition_score', 'heart_rate',
@@ -60,17 +48,14 @@ training_features_for_model = [
 original_categorical_cols = ['breed_type', 'faecal_consistency']
 
 # --- Helper Function for Rule-Based Alerts ---
-# Updated THRESHOLDS to include all faecal consistency options from frontend
 def get_rule_based_alerts(data):
     detected_diseases = []
-    generated_alerts = [] # Renamed from 'alerts' for clarity
+    generated_alerts = []
     abnormal_indicator_count = 0
 
-    # Centralized thresholds for readability and easy modification
     THRESHOLDS = {
         'body_temperature_high_respiratory': 39.5,
         'respiratory_rate_high_respiratory': 40,
-        # Updated to include all relevant faecal consistencies from your frontend select options
         'faecal_consistency_abnormal': ['watery', 'black faece', 'fresh blood in faeces', 'very liquid faeces'],
         'milk_production_low': 8.0,
         'body_condition_score_low_reproductive': 2.5,
@@ -204,7 +189,7 @@ CORS(app)
 
 # --- 3. Define the /predict API endpoint ---
 @app.route('/predict', methods=['POST'])
-async def predict(): # Changed to async for potential async Firestore operations
+def predict(): # REMOVED 'async'
     if not request.is_json:
         return jsonify({"error": "Request must be JSON"}), 400
 
@@ -236,7 +221,7 @@ async def predict(): # Changed to async for potential async Firestore operations
     if breed_type_val in le_breed.classes_:
         input_df['breed_type_enc'] = le_breed.transform([breed_type_val])[0]
     else:
-        fallback_breed_type_idx = 0 # Index of the first class in le_breed.classes_
+        fallback_breed_type_idx = 0
         print(f"Warning: Unseen breed_type '{breed_type_val}' in input. Encoding as '{le_breed.classes_[fallback_breed_type_idx]}' ({fallback_breed_type_idx}).")
         input_df['breed_type_enc'] = fallback_breed_type_idx
 
@@ -245,7 +230,7 @@ async def predict(): # Changed to async for potential async Firestore operations
     if faecal_consistency_val in le_faecal.classes_:
         input_df['faecal_consistency_enc'] = le_faecal.transform([faecal_consistency_val])[0]
     else:
-        fallback_faecal_idx = 0 # Index of the first class in le_faecal.classes_
+        fallback_faecal_idx = 0
         print(f"Warning: Unseen faecal_consistency '{faecal_consistency_val}' in input. Encoding as '{le_faecal.classes_[fallback_faecal_idx]}' ({fallback_faecal_idx}).")
         input_df['faecal_consistency_enc'] = fallback_faecal_idx
 
@@ -310,13 +295,13 @@ async def predict(): # Changed to async for potential async Firestore operations
                     break
                 elif alert.get('severity') == 'High' and overall_risk_level not in ["Critical"]:
                     overall_risk_level = "High"
-                    if overall_health_status == "Healthy": # If ML was healthy but rule is high
+                    if overall_health_status == "Healthy":
                         overall_health_status = "Unhealthy"
-                elif overall_risk_level not in ["Critical", "High"]: # Only upgrade to Medium if not already Critical/High
+                elif overall_risk_level not in ["Critical", "High"]:
                     if alert.get('severity') == 'Medium':
                         overall_risk_level = "Medium"
-                        if overall_health_status == "Healthy": # If ML was healthy but rule is medium
-                            overall_health_status = "Observation" # Set to 'Observation' if ML was healthy but medium rule triggered
+                        if overall_health_status == "Healthy":
+                            overall_health_status = "Observation"
 
     # Final structured output dictionary
     response_data = {
@@ -331,38 +316,29 @@ async def predict(): # Changed to async for potential async Firestore operations
             "predicted_class": predicted_health_status,
             "prediction_probabilities": probability_dict
         },
-        "specific_diseases_detected": list(set(detected_diseases)),
+        "specific_diseases_detected": list(set(rule_based_diseases)), # Ensure unique diseases
         "alerts": structured_alerts_list,
         "input_data_snapshot": data
     }
 
-    # --- NEW CRUCIAL STEP: Save to Firestore ---
+    # --- Save to Firestore ---
     if db:
         try:
-            # Get userId from the frontend (e.g., from a custom header or passed in payload)
-            # For this example, we assume userId is sent via 'X-User-Id' header from frontend
-            # In your main.js, store.userId would be available, so you'd add:
-            # headers: { 'Content-Type': 'application/json', 'X-User-Id': store.userId },
             user_id = request.headers.get('X-User-Id')
             if not user_id:
                 print("Flask Warning: 'X-User-Id' header not found. Using 'anonymous_flask_user'.")
                 user_id = 'anonymous_flask_user'
             
-            # Use __app_id from Canvas environment if available, else a placeholder for local development
             app_id = os.environ.get('CANVAS_APP_ID', 'default_app_id_for_local') 
 
-            # Ensure cattle_id exists for the document ID
             if response_data.get('cattle_id'):
                 doc_ref = db.collection(f'artifacts/{app_id}/users/{user_id}/cattle_data').document(response_data['cattle_id'])
-                # Use await for set if you are using an async Flask setup (e.g., ASGI server)
-                # For standard WSGI (default Flask), just use doc_ref.set()
-                doc_ref.set(response_data) 
+                doc_ref.set(response_data) # REMOVED 'await'
                 print(f"Flask: Data for Cattle ID {response_data['cattle_id']} saved to Firestore successfully for user {user_id}.")
             else:
                 print("Flask Warning: cattle_id missing in response_data, skipping Firestore save.")
         except Exception as firestore_e:
             print(f"Flask ERROR: Failed to save data to Firestore: {firestore_e}")
-            # Log error but do not prevent prediction from being returned to frontend
     else:
         print("Flask: Firestore client not initialized, skipping database save.")
 
