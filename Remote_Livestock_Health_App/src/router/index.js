@@ -11,6 +11,7 @@ import Reports from '../views/Reports.vue';
 import SettingsHelp from '../views/SettingsHelp.vue';
 import AddCattleData from '../components/forms/AddCattleData.vue';
 import CattlePredictionTool from '../views/CattlePredictionTool.vue'; 
+// NEW: Import the RealtimeSimulator component
 import RealtimeSimulator from '../views/RealtimeSimulator.vue'; 
 
 
