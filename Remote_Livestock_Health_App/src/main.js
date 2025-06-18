@@ -10,14 +10,19 @@ import { getFirestore, doc, setDoc, onSnapshot, collection, query, orderBy } fro
 // In a real app, firebaseConfig would come from a .env file or a config.js
 // For local development, you'll need to replace these with your actual Firebase project config.
 // Go to your Firebase project -> Project settings -> Your apps -> Web app -> Config
-const appId = "1:545517570920:web:1572f2641566dd113de4dd"; // Replace with your actual Firebase App ID
+// const appId = "1:545517570920:web:1572f2641566dd113de4dd"; // Original Firebase App ID
+// FIX: Use the same app ID string that your Flask backend is using for local development
+const appId = "default_app_id_for_local"; // <<<--- THIS IS THE CRITICAL CHANGE
+
 const firebaseConfig = {
   apiKey: "AIzaSyBqxr9y5dL80uuhO6b-QhJwl8l_sfTvCn8",
   authDomain: "remotelivestockhealthapp.firebaseapp.com",
   projectId: "remotelivestockhealthapp",
   storageBucket: "remotelivestockhealthapp.firebasestorage.app",
   messagingSenderId: "545517570920",
-  appId: "1:545517570920:web:1572f2641566dd113de4dd"
+  appId: "1:545517570920:web:1572f2641566dd113de4dd" // This is your *actual* web app ID, but for the Firestore collection path, we need to match Flask.
+                                                    // This appId within firebaseConfig is primarily for Firebase client-side functions.
+                                                    // The 'appId' const above is used for the Firestore collection path.
 };
 
 const initialAuthToken = null; // Not used in local anonymous login, keep as null
@@ -36,12 +41,12 @@ export const store = reactive({
     isAuthReady: false,
     db: db,
     auth: auth,
-    appId: appId,
+    appId: appId, // This 'appId' is now 'default_app_id_for_local'
     cattleData: [],
     activeAlerts: [],
     loading: false,
     error: null,
-    flaskApiUrl: 'http://localhost:5000/predict', // Your Flask API URL (changed from /predict_and_alert)
+    flaskApiUrl: 'http://localhost:5000/predict',
     training_features_for_model: [
         'body_temperature',
         'breed_type_enc',
@@ -75,8 +80,6 @@ onAuthStateChanged(auth, async (user) => {
         store.userId = null;
         console.log('Firebase Auth: No user logged in (or logged out).');
     }
-    // Set auth ready once the *initial* state check has completed
-    // This allows the UI to render correctly even if there's no user
     store.isAuthReady = true;
     console.log('Firebase Auth: isAuthReady set to true.');
 });
@@ -97,7 +100,6 @@ async function initialSignIn() {
     } catch (error) {
         console.error('Firebase Auth ERROR: Initial sign-in failed:', error.code, error.message);
         store.error = `Authentication error: ${error.message}`;
-        // Even on error, we mark auth as ready so the UI can proceed and show the error.
         store.isAuthReady = true;
     }
 }
@@ -122,6 +124,7 @@ watch(() => store.userId, (newUserId) => {
         console.log("Firestore: User ID available, setting up Firestore listener.");
         store.loading = true;
         store.error = null;
+        // Correct Firestore path to match where Flask is saving
         const cattleCollectionRef = collection(store.db, `artifacts/${store.appId}/users/${newUserId}/cattle_data`);
         const q = query(cattleCollectionRef, orderBy("timestamp", "desc"));
 
@@ -133,8 +136,10 @@ watch(() => store.userId, (newUserId) => {
                 const data = doc.data();
                 cattleData.push({ id: doc.id, ...data });
 
+                // Ensure data.alerts exists, is an array, and has items
                 if (data.alerts && Array.isArray(data.alerts) && data.alerts.length > 0) {
                     data.alerts.forEach(alert => {
+                        // Ensure alert.rule_triggered is present, fallback to random ID
                         activeAlerts.push({
                             id: `${doc.id}-${alert.rule_triggered || Math.random().toString(36).substring(7)}`,
                             cattleId: doc.id,
@@ -156,6 +161,9 @@ watch(() => store.userId, (newUserId) => {
             store.error = `Failed to load data: ${error.message}`;
             store.loading = false;
         });
+        // You might want to store 'unsubscribe' if you need to manually stop listening later
+        // e.g., onUnmounted in a component that consumes this global store if it needs to specifically unsubscribe
+        // For a global listener that runs for the app's lifetime, it's often not explicitly unsubscribed unless needed for hot-reloading logic or multi-app scenarios.
     } else {
         console.log("Firestore: No User ID, clearing cattle data and alerts.");
         store.cattleData = [];

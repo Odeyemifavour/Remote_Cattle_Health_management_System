@@ -1,430 +1,428 @@
 <template>
     <div class="content-area">
-        <h2 class="card-title">Herd Dashboard</h2>
-
-        <div v-if="store.loading" class="message-center">
-            <i class="fa-solid fa-spinner fa-spin fa-2x"></i> Loading herd data...
-        </div>
-        <div v-else-if="store.error" class="error-message">
-            <i class="fa-solid fa-circle-exclamation mr-2"></i> <span>{{ store.error }}</span>
-        </div>
-        <div v-else>
-            <div class="card controls-card mb-8">
-                <h3 class="card-title-small">Herd Management Filters</h3>
-                <div class="controls-grid">
-                    <div class="filter-group">
-                        <label for="health-status-filter" class="control-label">Filter by Health Status:</label>
-                        <select id="health-status-filter" v-model="healthStatusFilter" class="control-select">
-                            <option value="">All</option>
-                            <option value="Healthy">Healthy</option>
-                            <option value="Unhealthy">Unhealthy</option>
-                            <option value="Observation">Under Observation</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <label for="animal-id-search" class="control-label">Search by Cattle ID:</label>
-                        <input
-                            type="text"
-                            id="animal-id-search"
-                            v-model="searchQuery"
-                            placeholder="Enter Cattle ID"
-                            class="control-input"
-                        />
-                    </div>
-
-                    <div class="filter-group sort-group">
-                        <label for="sort-by" class="control-label">Sort By:</label>
-                        <select id="sort-by" v-model="sortBy" class="control-select">
-                            <option value="cattle_id">Cattle ID</option>
-                            <option value="healthStatusDisplay">Health Status</option>
-                            <option value="riskLevel">Risk Level</option>
-                            <option value="timestamp">Last Updated</option>
-                        </select>
-                        <select v-model="sortDirection" class="control-select ml-2">
-                            <option value="asc">Ascending</option>
-                            <option value="desc">Descending</option>
-                        </select>
-                    </div>
-                </div>
+        <div class="card">
+            <h2 class="card-title">Herd Dashboard</h2>
+            <div v-if="store.loading" class="message-center loading-message">
+                <i class="fa-solid fa-spinner fa-spin fa-2x"></i> Loading herd data...
+            </div>
+            <div v-if="store.error" class="error-message">
+                <p><strong>Error:</strong> {{ store.error }}</p>
             </div>
 
-            <div class="card p-0 overflow-x-auto">
-                <h3 class="card-title-small px-6 pt-6">Cattle Roster ({{ filteredAndSortedLivestock.length }} entries)</h3>
-                <table v-if="filteredAndSortedLivestock.length > 0" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Cattle ID</th>
-                            <th>Breed</th>
-                            <th>Current Health Status</th>
-                            <th>Risk Level</th>
-                            <th>Last Update</th>
-                            <th>Cattle Info</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="animal in filteredAndSortedLivestock" :key="animal.cattle_id">
-                            <td>{{ animal.cattle_id }}</td>
-                            <td>{{ animal.raw_data?.breed_type || 'N/A' }}</td>
-                            <td>
-                                <span :class="['status-badge', healthClass(animal.healthStatusDisplay)]">
-                                    {{ animal.healthStatusDisplay }}
-                                </span>
-                            </td>
-                            <td>
-                                <span :class="['risk-badge', getRiskClass(animal.riskLevel)]">
-                                    {{ animal.riskLevel }}
-                                </span>
-                            </td>
-                            <td>{{ formatTimestamp(animal.timestamp) }}</td>
-                            <td>
-                                <!-- Link to Prediction Log for detailed view of this cattle ID -->
-                                <router-link :to="`/prediction-log`" class="view-details-link">
-                                    View Details <i class="fa-solid fa-arrow-right ml-1"></i>
-                                </router-link>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p v-else class="message-center p-6">No livestock data available or matching your criteria.</p>
+            <!-- FIX: Added optional chaining and nullish coalescing to ensure filteredCattle is always an array -->
+            <div v-if="filteredCattle?.length > 0">
+                <div class="table-controls mb-4">
+                    <input type="text" v-model="searchTerm" placeholder="Search by Cattle ID or Breed" class="search-input">
+                    <select v-model="filterStatus" class="filter-select">
+                        <option value="">All Health Statuses</option>
+                        <option value="Healthy">Healthy</option>
+                        <option value="Unhealthy">Unhealthy</option>
+                    </select>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th @click="sortBy('cattle_id')">Cattle ID <i :class="getSortIcon('cattle_id')"></i></th>
+                                <th @click="sortBy('monitoring_results.health_status')">Health Status <i :class="getSortIcon('monitoring_results.health_status')"></i></th>
+                                <th @click="sortBy('monitoring_results.risk_level')">Risk Level <i :class="getSortIcon('monitoring_results.risk_level')"></i></th>
+                                <th @click="sortBy('input_data_snapshot.breed_type')">Breed Type <i :class="getSortIcon('input_data_snapshot.breed_type')"></i></th>
+                                <th @click="sortBy('alerts.length')">Alerts <i :class="getSortIcon('alerts.length')"></i></th>
+                                <th @click="sortBy('timestamp')">Last Updated <i :class="getSortIcon('timestamp')"></i></th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="cattle in paginatedCattle" :key="cattle.id">
+                                <td data-label="Cattle ID">{{ cattle.cattle_id }}</td>
+                                <td data-label="Health Status">
+                                    <span :class="['status-badge', getStatusClass(cattle.monitoring_results?.health_status)]">
+                                        {{ cattle.monitoring_results?.health_status || 'N/A' }}
+                                    </span>
+                                </td>
+                                <td data-label="Risk Level">
+                                    <span :class="['risk-badge', getRiskClass(cattle.monitoring_results?.risk_level)]">
+                                        {{ cattle.monitoring_results?.risk_level || 'N/A' }}
+                                    </span>
+                                </td>
+                                <td data-label="Breed Type">{{ cattle.input_data_snapshot?.breed_type || 'N/A' }}</td>
+                                <td data-label="Alerts">
+                                    <span v-if="cattle.alerts && cattle.alerts.length > 0" class="badge-count">
+                                        {{ cattle.alerts.length }}
+                                    </span>
+                                    <span v-else class="badge-count badge-none">0</span>
+                                </td>
+                                <td data-label="Last Updated">{{ formatTimestamp(cattle.timestamp) }}</td>
+                                <td data-label="Actions">
+                                    <button @click="viewDetails(cattle.id)" class="action-btn">View Details</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-controls flex justify-between items-center mt-6">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Previous</button>
+                    <span>Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
+                </div>
+            </div>
+            <!-- If filteredCattle is empty (or undefined/null initially) -->
+            <div v-else class="message-center no-data-message">
+                <p>No cattle data available. Start the real-time simulator or add data manually!</p>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { store } from '../main.js'; // Import the global store
+import { computed, ref, watch } from 'vue';
+import { store } from '../main.js';
+import { useRouter } from 'vue-router';
 
-// --- Filters and Sort States ---
-const healthStatusFilter = ref('');
-const searchQuery = ref('');
-const sortBy = ref('cattle_id');
-const sortDirection = ref('asc');
+const router = useRouter();
 
-// --- Computed Property for Latest Cattle Data (similar to DashboardOverview's filteredCattle) ---
-const latestCattleData = computed(() => {
-    const latestEntries = {};
-    store.cattleData.forEach(cattle => {
-        // Only consider entries with monitoring results for the dashboard
-        if (cattle.monitoring_results && cattle.monitoring_results.health_status && cattle.cattle_id) {
-            if (!latestEntries[cattle.cattle_id] || new Date(cattle.timestamp) > new Date(latestEntries[cattle.cattle_id].timestamp)) {
-                latestEntries[cattle.cattle_id] = cattle;
-            }
-        }
-    });
-    // Map the raw cattle data to a more convenient format for the table/filters
-    return Object.values(latestEntries).map(cattle => {
-        const healthStatus = cattle.monitoring_results.health_status.toLowerCase();
-        const riskLevel = cattle.monitoring_results.risk_level.toLowerCase();
+const searchTerm = ref('');
+const filterStatus = ref('');
+const sortByField = ref('timestamp');
+const sortDirection = ref('desc'); // 'asc' or 'desc'
+const itemsPerPage = 10;
+const currentPage = ref(1);
 
-        let healthStatusDisplay = '';
-        if (healthStatus === 'healthy' && riskLevel === 'low') {
-            healthStatusDisplay = 'Healthy';
-        } else if (healthStatus === 'unhealthy' && (riskLevel === 'critical' || riskLevel === 'high')) {
-            healthStatusDisplay = 'Unhealthy';
-        } else {
-            healthStatusDisplay = 'Observation'; // All other cases for the filter dropdown
-        }
+// Filter and sort cattle data
+const filteredAndSortedCattle = computed(() => {
+    // Ensure store.cattleData is always an array, even if it's null/undefined initially
+    let data = [...(store.cattleData || [])]; // Added nullish coalescing for robustness
 
-        return {
-            ...cattle, // Keep all original data
-            healthStatusDisplay: healthStatusDisplay, // Custom display for filter
-            riskLevel: cattle.monitoring_results.risk_level, // Keep original risk level for sorting/display
-            timestamp: cattle.timestamp // Ensure timestamp is available for sorting
+    // 1. Filter
+    if (searchTerm.value) {
+        const lowerSearchTerm = searchTerm.value.toLowerCase();
+        data = data.filter(cattle =>
+            cattle.cattle_id.toLowerCase().includes(lowerSearchTerm) ||
+            cattle.input_data_snapshot?.breed_type?.toLowerCase().includes(lowerSearchTerm)
+        );
+    }
+
+    if (filterStatus.value) {
+        data = data.filter(cattle =>
+            cattle.monitoring_results?.health_status?.toLowerCase() === filterStatus.value.toLowerCase()
+        );
+    }
+
+    // 2. Sort
+    data.sort((a, b) => {
+        let valA, valB;
+
+        // Helper to get nested property value
+        const getNestedValue = (obj, path) => {
+            return path.split('.').reduce((acc, part) => acc && acc[part], obj);
         };
-    });
-});
 
+        valA = getNestedValue(a, sortByField.value);
+        valB = getNestedValue(b, sortByField.value);
 
-// --- Filtering Logic ---
-const filteredLivestock = computed(() => {
-    return latestCattleData.value.filter(animal => {
-        // Filter by health status
-        const healthMatch =
-            !healthStatusFilter.value ||
-            animal.healthStatusDisplay === healthStatusFilter.value;
-
-        // Search by Cattle ID
-        const searchMatch =
-            !searchQuery.value ||
-            animal.cattle_id.toLowerCase().includes(searchQuery.value.toLowerCase());
-
-        return healthMatch && searchMatch;
-    });
-});
-
-// --- Sorting Logic ---
-const filteredAndSortedLivestock = computed(() => {
-    const sorted = [...filteredLivestock.value];
-    sorted.sort((a, b) => {
-        let propA = a[sortBy.value];
-        let propB = b[sortBy.value];
-
-        // Custom sorting for riskLevel
-        if (sortBy.value === 'riskLevel') {
-            const levels = { 'Low': 1, 'Low-Medium': 2, 'Medium': 3, 'High': 4, 'Critical': 5 };
-            propA = levels[propA] || 0;
-            propB = levels[propB] || 0;
-        } else if (sortBy.value === 'timestamp') {
-            propA = new Date(propA);
-            propB = new Date(propB);
-        } else if (typeof propA === 'string') {
-            propA = propA.toLowerCase();
-            propB = propB.toLowerCase();
+        // Special handling for alert count (alerts.length)
+        if (sortByField.value === 'alerts.length') {
+            valA = (valA || []).length;
+            valB = (valB || []).length;
         }
 
-        let comparison = 0;
-        if (propA < propB) comparison = -1;
-        else if (propA > propB) comparison = 1;
+        // Handle undefined/null values for sorting
+        if (valA === undefined || valA === null) valA = sortDirection.value === 'asc' ? Infinity : -Infinity;
+        if (valB === undefined || valB === null) valB = sortDirection.value === 'asc' ? Infinity : -Infinity;
 
-        return sortDirection.value === 'asc' ? comparison : comparison * -1;
+        if (typeof valA === 'string') {
+            return sortDirection.value === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+            return sortDirection.value === 'asc' ? valA - valB : valB - valA;
+        }
     });
-    return sorted;
+
+    return data;
 });
 
-// --- Utility Functions ---
+// Pagination
+const totalPages = computed(() => Math.ceil(filteredAndSortedCattle.value.length / itemsPerPage));
 
-// Returns CSS class for health status display in table
-function healthClass(statusDisplay) {
-    if (statusDisplay === 'Healthy') return 'status-healthy';
-    if (statusDisplay === 'Unhealthy') return 'status-unhealthy';
-    if (statusDisplay === 'Observation') return 'status-observation';
-    return ''; // Default
-}
+const paginatedCattle = computed(() => {
+    const start = (currentPage.value - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return filteredAndSortedCattle.value.slice(start, end);
+});
 
-// Returns CSS class for risk badge (reusing global styles)
-const getRiskClass = (riskLevel) => {
-    return `risk-${riskLevel.toLowerCase().replace(' ', '-')}`;
+const prevPage = () => {
+    if (currentPage.value > 1) {
+        currentPage.value--;
+    }
 };
 
-// Formats timestamp for display
-const formatTimestamp = (timestampString) => {
-    if (!timestampString) return 'N/A';
-    const date = new Date(timestampString);
-    return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    });
+const nextPage = () => {
+    if (currentPage.value < totalPages.value) {
+        currentPage.value++;
+    }
+};
+
+// Reset page to 1 when filters or search change
+watch([searchTerm, filterStatus], () => {
+    currentPage.value = 1;
+});
+
+// Sorting logic
+const sortBy = (field) => {
+    if (sortByField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortByField.value = field;
+        sortDirection.value = 'asc'; // Default to ascending when changing field
+    }
+};
+
+const getSortIcon = (field) => {
+    if (sortByField.value === field) {
+        return sortDirection.value === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+    }
+    return 'fa-solid fa-sort'; // Default icon
+};
+
+// Styling helpers
+const getStatusClass = (status) => {
+    return status?.toLowerCase() === 'unhealthy' ? 'status-unhealthy' : 'status-healthy';
+};
+
+const getRiskClass = (risk) => {
+    return `risk-${risk?.toLowerCase().replace(' ', '-')}`;
+};
+
+const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    // Assuming timestamp is in "YYYY-MM-DD HH:MM:SS" format from Flask
+    return new Date(timestamp).toLocaleString();
+};
+
+const viewDetails = (cattleId) => {
+    router.push({ name: 'CattleInformation', params: { id: cattleId } });
 };
 </script>
 
 <style scoped>
-/* Base styles imported from global if you have a main.css */
-/* Otherwise, ensure your global style variables are defined and accessible */
-
-.card-title-small {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-dark);
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-    position: relative;
-}
-.card-title-small::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: -1px;
-    width: 40px;
-    height: 3px;
-    background-color: var(--primary-color);
-    border-radius: 1.5px;
-}
-
-/* Controls Card & Grid */
-.controls-card {
-    padding: 30px;
-}
-
-.controls-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-}
-
-.filter-group, .sort-group {
+/* Table Specific Styles */
+.table-controls {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: 15px;
+    margin-bottom: 25px;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+    justify-content: flex-end; /* Align to right on larger screens */
 }
 
-.control-label {
-    font-weight: 600;
-    color: var(--text-dark);
-    white-space: nowrap;
-    font-size: 0.95em;
-}
-
-.control-input, .control-select {
-    flex-grow: 1;
+.search-input,
+.filter-select {
     padding: 10px 15px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background-color: var(--card-bg);
-    color: var(--text-dark);
     font-size: 1em;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    color: var(--text-dark);
+    background-color: var(--background-light);
+    flex: 1; /* Allow inputs to grow */
+    min-width: 150px; /* Minimum width for inputs */
 }
 
-.control-input:focus, .control-select:focus {
+.search-input:focus,
+.filter-select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
 }
 
-/* Livestock Table Styling (reusing global .data-table styles) */
-.data-table {
+.overflow-x-auto {
+    overflow-x: auto; /* Enables horizontal scrolling for the table on small screens */
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    border-radius: 12px;
-    overflow: hidden;
-    /* Box shadow is handled by parent .card */
 }
 
-.data-table th, .data-table td {
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: var(--background-light);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border-radius: 12px;
+    overflow: hidden; /* Ensures rounded corners apply to table content */
+}
+
+.data-table th,
+.data-table td {
     padding: 15px 20px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
 }
 
-.data-table th {
-    background-color: #F0F0F0;
-    font-weight: 600;
-    color: var(--text-dark);
-    text-transform: uppercase;
-    font-size: 0.8em;
-    letter-spacing: 0.05em;
+.data-table thead {
+    background-color: var(--primary-color);
+    color: var(--text-light);
 }
-.data-table th:first-child { border-top-left-radius: 12px; }
-.data-table th:last-child { border-top-right-radius: 12px; }
+
+.data-table th {
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap; /* Prevent wrapping of column headers */
+}
+
+.data-table th:hover {
+    background-color: var(--primary-dark);
+}
 
 .data-table tbody tr:last-child td {
     border-bottom: none;
 }
+
 .data-table tbody tr:nth-child(even) {
-    background-color: #FBFBFB;
+    background-color: #F8F8F8; /* Light stripe for readability */
 }
+
 .data-table tbody tr:hover {
-    background-color: #F0F4F8;
+    background-color: #F0F4F7; /* Hover effect */
+}
+
+/* Badges for status and risk */
+.status-badge,
+.risk-badge {
+    padding: 6px 12px;
+    border-radius: 18px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-block;
+    min-width: 80px; /* Ensure consistent width */
+    text-align: center;
+}
+.status-healthy { background-color: var(--success-color); color: var(--text-light); }
+.status-unhealthy { background-color: var(--danger-color); color: var(--text-light); }
+
+.risk-badge.critical { background-color: var(--alert-critical-border); color: var(--text-light); }
+.risk-badge.high { background-color: var(--alert-high-border); color: var(--text-light); }
+.risk-badge.medium { background-color: var(--alert-medium-border); color: var(--text-dark); }
+.risk-badge.low-medium { background-color: var(--alert-low-medium-border); color: var(--text-light); }
+.risk-badge.low { background-color: var(--alert-low-border); color: var(--text-light); }
+
+.badge-count {
+    background-color: var(--secondary-color);
+    color: var(--text-light);
+    padding: 4px 8px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    font-weight: bold;
+    display: inline-block;
+    min-width: 25px;
+    text-align: center;
+}
+
+.badge-none {
+    background-color: #CFD8DC; /* Light grey for 0 alerts */
+}
+
+.action-btn {
+    background-color: var(--accent-color);
+    color: var(--text-light);
+    padding: 8px 15px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
     transition: background-color 0.2s ease;
 }
 
-/* Status Badges in Table (reusing global styles) */
-.status-badge {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.75em;
-    font-weight: 700;
-    display: inline-block;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    min-width: 90px;
-}
-.status-healthy { background-color: var(--primary-color); color: var(--text-light); }
-.status-unhealthy { background-color: var(--alert-critical-border); color: var(--text-light); }
-.status-observation { background-color: var(--alert-high-border); color: var(--text-light); } /* Orange for observation */
-
-/* Risk Badges are globally defined and reused */
-
-.view-details-link {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 600;
-    transition: color 0.2s ease;
-    white-space: nowrap; /* Prevent wrapping */
-}
-.view-details-link:hover {
-    color: var(--primary-dark);
-    text-decoration: underline;
+.action-btn:hover {
+    background-color: var(--accent-dark);
 }
 
-/* Responsive Table Adjustments */
+/* Pagination Styles */
+.pagination-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding: 10px;
+    background-color: var(--background-light);
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.pagination-button {
+    background-color: var(--secondary-color);
+    color: var(--text-light);
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.pagination-button:hover:not(:disabled) {
+    background-color: var(--secondary-dark);
+}
+
+.pagination-button:disabled {
+    background-color: #B0BEC5;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.no-data-message {
+    padding: 30px;
+    font-size: 1.1em;
+    color: var(--text-muted);
+}
+
+/* Responsive Table */
 @media (max-width: 768px) {
-    .controls-grid {
-        grid-template-columns: 1fr;
-    }
-    .filter-group, .sort-group {
+    .table-controls {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-    }
-    .control-label {
-        margin-bottom: 5px;
-    }
-    .control-select.ml-2 {
-        margin-left: 0; /* Remove margin on small screens */
-        margin-top: 5px; /* Add some vertical space */
+        gap: 10px;
     }
 
-    /* Make table rows act like blocks on small screens */
-    .data-table {
+    .data-table thead {
+        display: none; /* Hide table headers on small screens */
+    }
+
+    .data-table, .data-table tbody, .data-table tr, .data-table td {
         display: block;
         width: 100%;
     }
-    .data-table thead, .data-table tbody, .data-table th, .data-table td, .data-table tr {
-        display: block;
-    }
-    .data-table thead tr {
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-    }
+
     .data-table tr {
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        overflow: hidden;
+        background-color: var(--background-light);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
+
     .data-table td {
-        border: none;
-        border-bottom: 1px solid var(--border-color);
-        position: relative;
-        padding-left: 50%;
         text-align: right;
-        min-height: 40px; /* Ensure enough height for content */
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
+        padding-left: 50%; /* Space for pseudo-element label */
+        position: relative;
+        border-bottom: 1px dashed var(--border-color);
     }
+
     .data-table td:last-child {
         border-bottom: none;
     }
-    .data-table td:before {
+
+    .data-table td::before {
+        content: attr(data-label);
         position: absolute;
-        top: 0;
-        left: 6px;
-        width: 45%;
+        left: 15px;
+        width: calc(50% - 30px);
         padding-right: 10px;
         white-space: nowrap;
-        text-align: left;
         font-weight: 600;
+        text-align: left;
         color: var(--text-dark);
-        content: attr(data-label); /* Use data-label for mobile headers */
-        display: flex;
-        align-items: center;
-        height: 100%;
     }
-    /* Specific content for :before pseudo-elements to display headers on mobile */
-    .data-table td:nth-of-type(1):before { content: "Cattle ID:"; }
-    .data-table td:nth-of-type(2):before { content: "Breed:"; }
-    .data-table td:nth-of-type(3):before { content: "Health Status:"; }
-    .data-table td:nth-of-type(4):before { content: "Risk Level:"; }
-    .data-table td:nth-of-type(5):before { content: "Last Update:"; }
-    .data-table td:nth-of-type(6):before { content: "Details:"; }
 
-    /* Fix badge alignment on mobile */
-    .data-table td span.status-badge,
-    .data-table td span.risk-badge {
-        margin-left: auto; /* Push to right */
+    .pagination-controls {
+        flex-direction: column;
+        gap: 15px;
     }
 }
 </style>

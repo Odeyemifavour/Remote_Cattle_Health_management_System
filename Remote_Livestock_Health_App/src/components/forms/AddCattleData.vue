@@ -22,10 +22,7 @@
                 <select id="breed_type" v-model="formData.breed_type" required>
                     <option value="Normal Breed">Normal Breed</option>
                     <option value="Cross Breed">Cross Breed</option>
-                    <option value="Holstein">Holstein</option>
-                    <option value="Jersey">Jersey</option>
-                    <option value="Indigenous Breed">Indigenous Breed</option> <!-- Added this option -->
-                    <option value="Other">Other</option>
+                    <!-- Only provide options that your model's LabelEncoder was trained on -->
                 </select>
             </div>
             <div class="form-group">
@@ -76,8 +73,8 @@
                     <option value="Black faece">Black faece</option>
                     <option value="extremely firm">extremely firm</option>
                     <option value="firm">firm</option>
-                    <option value="Fresh blood in faeces">Fresh blood in faeces</option> <!-- Added this option -->
-                    <option value="very liquid faeces">very liquid faeces</option> <!-- Added this option -->
+                    <option value="Fresh blood in faeces">Fresh blood in faeces</option>
+                    <option value="very liquid faeces">very liquid faeces</option>
                 </select>
             </div>
 
@@ -92,10 +89,7 @@
 
 <script setup>
 import { reactive, ref } from 'vue';
-import { store } from '../../main.js'; // Ensure this path is correct
-// Removed direct Firestore import as saving is now handled by Flask API,
-// but leaving it commented out for context if needed for other operations
-// import { doc, setDoc } from 'firebase/firestore'; 
+import { store } from '../../main.js'; // Correct path from src/components/forms/
 
 const formData = reactive({
     cattle_id: '',
@@ -119,7 +113,6 @@ const submitData = async () => {
     }
 
     try {
-        // Prepare data for Flask API
         const dataToSend = { ...formData };
 
         const response = await fetch(store.flaskApiUrl, {
