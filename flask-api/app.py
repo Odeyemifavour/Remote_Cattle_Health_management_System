@@ -1,4 +1,5 @@
 # app.py (Your Flask application file)
+#set GOOGLE_APPLICATION_CREDENTIALS=C:\Users\DELL\Downloads\DATASETS\CATTLE HEALTH MANAGEMENT APP\Remote_Cattle_Health_management_System\flask-api\firebase-key.json
 
 print("--- APP.PY EXECUTION STARTED ---")
 
