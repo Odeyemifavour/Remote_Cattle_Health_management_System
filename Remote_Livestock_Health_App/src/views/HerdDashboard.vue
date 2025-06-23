@@ -10,7 +10,7 @@
         </div>
 
         <div v-else>
-            <!-- New: Summary Statistics Section -->
+            <!-- Summary Statistics Section (Removed Observation) -->
             <div class="card summary-card mb-8">
                 <h3 class="card-title-small">Herd Overview</h3>
                 <div class="summary-grid">
@@ -19,21 +19,17 @@
                         <span class="summary-value">{{ filteredAndSortedCattle.length }}</span>
                         <span class="summary-label">Total Cattle</span>
                     </div>
-                    <div class="summary-item ">
+                    <div class="summary-item status-healthy-bg">
                         <i class="fa-solid fa-heart-pulse summary-icon"></i>
                         <span class="summary-value">{{ healthyCattleCount }}</span>
                         <span class="summary-label">Healthy</span>
                     </div>
-                    <div class="summary-item ">
+                    <div class="summary-item status-unhealthy-bg">
                         <i class="fa-solid fa-skull-crossbones summary-icon"></i>
                         <span class="summary-value">{{ unhealthyCattleCount }}</span>
                         <span class="summary-label">Unhealthy</span>
                     </div>
-                    <div class="summary-item ">
-                        <i class="fa-solid fa-eye summary-icon"></i>
-                        <span class="summary-value">{{ observationCattleCount }}</span>
-                        <span class="summary-label">Under Observation</span>
-                    </div>
+                    <!-- REMOVED: The "Under Observation" summary item completely -->
                 </div>
             </div>
 
@@ -46,7 +42,7 @@
                             <option value="">All</option>
                             <option value="Healthy">Healthy</option>
                             <option value="Unhealthy">Unhealthy</option>
-                            <option value="Observation">Under Observation</option>
+                            <!-- REMOVED: <option value="Observation">Under Observation</option> -->
                         </select>
                     </div>
                     <div class="filter-group">
@@ -59,7 +55,9 @@
                             <option value="cattle_id">Cattle ID</option>
                             <option value="healthStatusDisplay">Health Status</option>
                             <option value="riskLevel">Risk Level</option>
+                            <option value="breedTypeDisplay">Breed Type</option>
                             <option value="timestamp">Last Updated</option>
+                            <!-- REMOVED: Alerts option from sorting -->
                         </select>
                         <select v-model="sortDirection" class="control-select ml-2">
                             <option value="asc">Ascending</option>
@@ -76,15 +74,14 @@
                         <tr>
                             <th @click="sortBy('cattle_id')">Cattle ID <i :class="getSortIcon('cattle_id')"></i></th>
                             <th @click="sortBy('healthStatusDisplay')">Health Status <i :class="getSortIcon('healthStatusDisplay')"></i></th>
-                            <th @click="sortBy('riskLevel')">Risk Level <i :class="classSortIcon('riskLevel')"></i></th>
-                            <th @click="sortBy('input_data_snapshot.breed_type')">Breed Type <i :class="getSortIcon('input_data_snapshot.breed_type')"></i></th>
-                            <th @click="sortBy('alerts.length')">Alerts <i :class="getSortIcon('alerts.length')"></i></th>
+                            <th @click="sortBy('riskLevel')">Risk Level <i :class="getSortIcon('riskLevel')"></i></th>
+                            <th @click="sortBy('breedTypeDisplay')">Breed Type <i :class="getSortIcon('breedTypeDisplay')"></i></th>
                             <th @click="sortBy('timestamp')">Last Updated <i :class="getSortIcon('timestamp')"></i></th>
                             <th>Actions</th>
+                            <!-- REMOVED: Alerts column header -->
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Added @click to trigger modal on row click -->
                         <tr v-for="cattle in paginatedCattle" :key="cattle.id" @click="openDetailsModal(cattle)" class="data-row-clickable">
                             <td data-label="Cattle ID">{{ cattle.cattle_id }}</td>
                             <td data-label="Health Status">
@@ -97,22 +94,15 @@
                                     {{ cattle.riskLevel }}
                                 </span>
                             </td>
-                            <td data-label="Breed Type">{{ cattle.input_data_snapshot?.breed_type || 'N/A' }}</td>
-                            <td data-label="Alerts">
-                                <span v-if="cattle.alerts && cattle.alerts.length > 0" class="badge-count badge-alerts">
-                                    {{ cattle.alerts.length }}
-                                </span>
-                                <span v-else class="badge-count badge-none">0</span>
-                            </td>
+                            <td data-label="Breed Type">{{ cattle.breedTypeDisplay }}</td>
                             <td data-label="Last Updated">{{ formatTimestamp(cattle.timestamp) }}</td>
                             <td data-label="Actions">
-                                <!-- Kept the button for explicit click, though row is also clickable -->
                                 <button @click.stop="openDetailsModal(cattle)" class="action-btn">View Details</button>
                             </td>
+                            <!-- REMOVED: Alerts count column -->
                         </tr>
                     </tbody>
                 </table>
-                <!-- Enhanced no-data message -->
                 <div v-else class="message-center no-data-message">
                     <i class="fa-solid fa-cow fa-3x mb-4"></i>
                     <p>No cattle data available. Start the real-time simulator or add data manually!</p>
@@ -147,31 +137,15 @@
                                 {{ selectedCattleDetails.riskLevel }}
                             </span>
                         </p>
-                        <p><strong>Breed Type:</strong> <span>{{ selectedCattleDetails.input_data_snapshot?.breed_type || 'N/A' }}</span></p>
+                        <p><strong>Breed Type:</strong> <span>{{ selectedCattleDetails.breedTypeDisplay }}</span></p> <!-- Uses simplified breed type in modal -->
                         <p><strong>Confidence:</strong> <span>{{ selectedCattleDetails.monitoring_results?.confidence || 'N/A' }}</span></p>
                     </div>
 
                     <h4>Raw Input Data:</h4>
                     <pre class="raw-data-display">{{ JSON.stringify(selectedCattleDetails.input_data_snapshot, null, 2) }}</pre>
 
-                    <h4 v-if="selectedCattleDetails.specific_diseases_detected?.length > 0">Detected Diseases:</h4>
-                    <ul v-if="selectedCattleDetails.specific_diseases_detected?.length > 0" class="disease-list">
-                        <li v-for="disease in selectedCattleDetails.specific_diseases_detected" :key="disease">
-                            <i class="fa-solid fa-virus"></i> {{ disease }}
-                        </li>
-                    </ul>
-                    <p v-else class="no-disease-message">No specific diseases detected.</p>
-
-                    <h4 v-if="selectedCattleDetails.alerts?.length > 0">Active Alerts:</h4>
-                    <ul v-if="selectedCattleDetails.alerts?.length > 0" class="alerts-list">
-                        <li v-for="alert in selectedCattleDetails.alerts" :key="alert.id">
-                            <span :class="['alert-severity-badge', getAlertSeverityClass(alert.severity)]">
-                                {{ alert.severity }}
-                            </span>
-                            {{ alert.message }}
-                        </li>
-                    </ul>
-                    <p v-else class="no-alert-message">No active alerts for this cattle.</p>
+                    <!-- REMOVED: Detected Diseases section -->
+                    <!-- REMOVED: Active Alerts section -->
                     
                     <button @click="goToCattleInformation(selectedCattleDetails.cattle_id)" class="modal-action-btn mt-4">
                         Go to Detailed Log <i class="fa-solid fa-arrow-right icon-margin-left"></i>
@@ -200,15 +174,13 @@ const currentPage = ref(1);
 const showDetailsModal = ref(false);
 const selectedCattleDetails = ref(null);
 
-// Debug logs!
 console.log('HerdDashboard: Component loaded.');
 watch(() => store.cattleData, (newValue) => {
     console.log('HerdDashboard: store.cattleData updated!', newValue.length, 'items.');
-    // console.log('HerdDashboard: Full cattleData:', JSON.parse(JSON.stringify(newValue))); // Keep this commented for cleaner console unless debugging specific data issues
 }, { immediate: true });
 
 
-// Computed properties for summary statistics
+// Computed properties for summary statistics (UPDATED for breed type and removed Observation)
 const latestCattleDataProcessed = computed(() => {
     const latestEntries = {};
     (store.cattleData || []).forEach(cattle => {
@@ -220,27 +192,33 @@ const latestCattleDataProcessed = computed(() => {
     });
 
     return Object.values(latestEntries).map(cattle => {
-        const healthStatus = cattle.monitoring_results.health_status.toLowerCase();
-        const riskLevel = cattle.monitoring_results.risk_level.toLowerCase();
+        // Ensure health status is capitalized "Healthy" or "Unhealthy" only
+        const healthStatus = cattle.monitoring_results.health_status;
+        const riskLevel = cattle.monitoring_results.risk_level;
+        const rawBreedType = cattle.input_data_snapshot?.breed_type;
 
-        let healthStatusDisplay = '';
-        if (healthStatus === 'healthy' && (riskLevel === 'low' || riskLevel === 'low-medium')) {
-            healthStatusDisplay = 'Healthy';
-        } else if (healthStatus === 'unhealthy' && (riskLevel === 'critical' || riskLevel === 'high')) {
-            healthStatusDisplay = 'Unhealthy';
-        } else {
-            healthStatusDisplay = 'Observation'; // All other cases for the filter dropdown
+        // Logic to categorize breed type - No "N/A", always "Normal Breed" or "Cross Breed"
+        let breedTypeDisplay = 'Normal Breed'; // Default to Normal Breed
+        if (rawBreedType) {
+            const lowerBreed = rawBreedType.toLowerCase();
+            // If it contains "cross" or has more than one word, categorize as "Cross Breed"
+            // Example: "Jersey Cross", "Holstein Friesian", "Mixed Breed" -> "Cross Breed"
+            if (lowerBreed.includes('cross') || lowerBreed.split(' ').length > 1) {
+                breedTypeDisplay = 'Cross Breed';
+            } else {
+                breedTypeDisplay = 'Normal Breed';
+            }
         }
 
         return {
             ...cattle,
-            healthStatusDisplay: healthStatusDisplay,
-            riskLevel: cattle.monitoring_results.risk_level, // Keep original risk level for sorting/display
+            healthStatusDisplay: healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1).toLowerCase(), 
+            riskLevel: riskLevel,
+            breedTypeDisplay: breedTypeDisplay, // Now always "Normal Breed" or "Cross Breed"
             timestamp: cattle.timestamp
         };
     });
 });
-
 
 const healthyCattleCount = computed(() => {
     return latestCattleDataProcessed.value.filter(c => c.healthStatusDisplay === 'Healthy').length;
@@ -250,21 +228,19 @@ const unhealthyCattleCount = computed(() => {
     return latestCattleDataProcessed.value.filter(c => c.healthStatusDisplay === 'Unhealthy').length;
 });
 
-const observationCattleCount = computed(() => {
-    return latestCattleDataProcessed.value.filter(c => c.healthStatusDisplay === 'Observation').length;
-});
+// REMOVED: observationCattleCount
 
 
-// Filter and sort cattle data
+// Filter and sort cattle data (UPDATED for breed type and removed Observation & Alerts.length)
 const filteredAndSortedCattle = computed(() => {
-    let data = [...latestCattleDataProcessed.value]; // Use the already processed data
+    let data = [...latestCattleDataProcessed.value];
 
     // 1. Filter
     if (searchTerm.value) {
         const lowerSearchTerm = searchTerm.value.toLowerCase();
         data = data.filter(cattle =>
             cattle.cattle_id.toLowerCase().includes(lowerSearchTerm) ||
-            cattle.input_data_snapshot?.breed_type?.toLowerCase().includes(lowerSearchTerm)
+            cattle.breedTypeDisplay.toLowerCase().includes(lowerSearchTerm) // Search simplified breed
         );
     }
 
@@ -282,19 +258,23 @@ const filteredAndSortedCattle = computed(() => {
             return path.split('.').reduce((acc, part) => acc && acc[part], obj);
         };
 
-        // Special handling for `healthStatusDisplay` and `riskLevel` for proper ordering
+        // Special handling for `healthStatusDisplay`, `riskLevel`, and `breedTypeDisplay` for proper ordering
         if (sortByField.value === 'healthStatusDisplay') {
-            const statusOrder = {'Healthy': 1, 'Observation': 2, 'Unhealthy': 3};
-            valA = statusOrder[a.healthStatusDisplay] || 99;
+            // Define explicit order for sorting: Healthy before Unhealthy
+            const statusOrder = {'Healthy': 1, 'Unhealthy': 2}; 
+            valA = statusOrder[a.healthStatusDisplay] || 99; // Fallback for unexpected status
             valB = statusOrder[b.healthStatusDisplay] || 99;
         } else if (sortByField.value === 'riskLevel') {
             const levels = { 'Low': 1, 'Low-Medium': 2, 'Medium': 3, 'High': 4, 'Critical': 5 };
             valA = levels[a.riskLevel] || 0;
             valB = levels[b.riskLevel] || 0;
-        } else if (sortByField.value === 'alerts.length') {
-            valA = (a.alerts || []).length;
-            valB = (b.alerts || []).length;
-        } else {
+        } else if (sortByField.value === 'breedTypeDisplay') { // Custom sort for breed type
+            const breedOrder = {'Normal Breed': 1, 'Cross Breed': 2}; // Only these two
+            valA = breedOrder[a.breedTypeDisplay] || 99;
+            valB = breedOrder[b.breedTypeDisplay] || 99;
+        } 
+        // REMOVED: Alerts.length sorting
+        else {
             valA = getNestedValue(a, sortByField.value);
             valB = getNestedValue(b, sortByField.value);
         }
@@ -312,7 +292,7 @@ const filteredAndSortedCattle = computed(() => {
     return data;
 });
 
-// Pagination
+// Pagination and other functions remain the same
 const totalPages = computed(() => Math.ceil(filteredAndSortedCattle.value.length / itemsPerPage));
 
 const paginatedCattle = computed(() => {
@@ -333,18 +313,16 @@ const nextPage = () => {
     }
 };
 
-// Reset page to 1 when filters or search change
 watch([searchTerm, filterStatus], () => {
     currentPage.value = 1;
 });
 
-// Sorting logic
 const sortBy = (field) => {
     if (sortByField.value === field) {
         sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
     } else {
         sortByField.value = field;
-        sortDirection.value = 'asc'; // Default to ascending when changing field
+        sortDirection.value = 'asc';
     }
 };
 
@@ -352,18 +330,15 @@ const getSortIcon = (field) => {
     if (sortByField.value === field) {
         return sortDirection.value === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
     }
-    return 'fa-solid fa-sort'; // Default icon
+    return 'fa-solid fa-sort';
 };
 
-// Styling helpers
-const getStatusClass = (status) => {
-    return status?.toLowerCase() === 'unhealthy' ? 'status-unhealthy' : 'status-healthy';
-};
-function healthClass(statusDisplay) { // This function is used by the template
+// Styling helpers (UPDATED - removed Observation logic)
+function healthClass(statusDisplay) {
     if (statusDisplay === 'Healthy') return 'status-healthy';
     if (statusDisplay === 'Unhealthy') return 'status-unhealthy';
-    if (statusDisplay === 'Observation') return 'status-observation';
-    return ''; // Default
+    // No 'Observation' case anymore
+    return ''; 
 }
 
 const getRiskClass = (risk) => {
@@ -371,10 +346,11 @@ const getRiskClass = (risk) => {
 };
 
 const getAlertSeverityClass = (severity) => {
+    // This function will likely not be called if alert sections are removed from UI
     return `alert-severity-${severity?.toLowerCase().replace(' ', '-')}`;
 };
 
-// Modals
+// Modals functions remain the same
 const openDetailsModal = (cattle) => {
     selectedCattleDetails.value = cattle;
     showDetailsModal.value = true;
@@ -386,14 +362,12 @@ const closeDetailsModal = () => {
 };
 
 const goToCattleInformation = (cattleId) => {
-    closeDetailsModal(); // Close modal before navigating
+    closeDetailsModal();
     router.push({ name: 'CattleInformation', params: { id: cattleId } });
 };
 
-
 const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'N/A';
-    // Assuming timestamp is in "YYYY-MM-DD HH:MM:SS" format from Flask
     return new Date(timestamp).toLocaleString();
 };
 
@@ -401,17 +375,16 @@ const formatTimestamp = (timestamp) => {
 
 <style scoped>
 /* Define spacing classes explicitly */
-.mb-8 { margin-bottom: 2rem; } /* Equivalent to mb-8 */
-.mb-4 { margin-bottom: 1rem; } /* Equivalent to mb-4 */
-.mt-6 { margin-top: 1.5rem; } /* Equivalent to mt-6 */
-.mr-2 { margin-right: 0.5rem; } /* Equivalent to mr-2 */
-.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; } /* Equivalent to px-6 */
-.pt-6 { padding-top: 1.5rem; } /* Equivalent to pt-6 */
-.p-0 { padding: 0 !important; } /* Equivalent to p-0, !important to override .card's default padding */
-.ml-2 { margin-left: 0.5rem; } /* For the sort direction select */
-.icon-margin-left { margin-left: 0.25rem; } /* For icons like in action button, replacing ml-1 */
-.mb-4 { margin-bottom: 1rem; } /* Added for consistency */
-.mb-2 { margin-bottom: 0.5rem; } /* Added for consistency */
+.mb-8 { margin-bottom: 2rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mr-2 { margin-right: 0.5rem; }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.pt-6 { padding-top: 1.5rem; }
+.p-0 { padding: 0 !important; }
+.ml-2 { margin-left: 0.5rem; }
+.icon-margin-left { margin-left: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
 
 
 /* General component styling */
@@ -435,11 +408,11 @@ const formatTimestamp = (timestamp) => {
     border-radius: 1.5px;
 }
 
-/* Summary Card Styles (New) */
+/* Summary Card Styles */
 .summary-card {
     padding: 30px;
     text-align: center;
-    background: linear-gradient(135deg, #e0f7fa, #e8f5e9); /* Softer, inviting gradient */
+    background: linear-gradient(135deg, #e0f7fa, #e8f5e9);
     border: 1px solid #c8e6c9;
 }
 .summary-grid {
@@ -456,9 +429,9 @@ const formatTimestamp = (timestamp) => {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center; /* Center content vertically too */
+    justify-content: center;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid var(--border-color); /* Added subtle border */
+    border: 1px solid var(--border-color);
 }
 .summary-item:hover {
     transform: translateY(-5px);
@@ -466,7 +439,7 @@ const formatTimestamp = (timestamp) => {
 }
 .summary-icon {
     font-size: 2.2em;
-    color: var(--primary-color); /* Default icon color */
+    color: var(--primary-color);
     margin-bottom: 10px;
 }
 .summary-value {
@@ -481,7 +454,6 @@ const formatTimestamp = (timestamp) => {
     margin-top: 5px;
     font-weight: 500;
 }
-/* Backgrounds for specific summary items - Ensure Text is Light for Dark BGs */
 .summary-item.status-healthy-bg { background-color: var(--success-color); }
 .summary-item.status-healthy-bg .summary-icon,
 .summary-item.status-healthy-bg .summary-value,
@@ -492,13 +464,10 @@ const formatTimestamp = (timestamp) => {
 .summary-item.status-unhealthy-bg .summary-value,
 .summary-item.status-unhealthy-bg .summary-label { color: var(--text-light); }
 
-.summary-item.status-observation-bg { background-color: var(--warning-color); } /* Light background */
-.summary-item.status-observation-bg .summary-icon,
-.summary-item.status-observation-bg .summary-value,
-.summary-item.status-observation-bg .summary-label { color: var(--text-dark); } /* Dark text for light background */
+/* No .summary-item.status-observation-bg related styles anymore */
 
 
-/* Controls Card & Grid (existing) */
+/* Controls Card & Grid */
 .controls-card {
     padding: 30px;
 }
@@ -535,7 +504,7 @@ const formatTimestamp = (timestamp) => {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
 }
 
-/* Table Specific Styles (existing, with badge contrast fix) */
+/* Table Specific Styles */
 .table-controls {
     display: flex;
     gap: 15px;
@@ -584,7 +553,7 @@ const formatTimestamp = (timestamp) => {
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color 0.2s ease; /* Added transition for hover */
+    transition: background-color 0.2s ease;
 }
 .data-table th:hover {
     background-color: var(--primary-dark);
@@ -596,7 +565,6 @@ const formatTimestamp = (timestamp) => {
     background-color: #F8F8F8;
 }
 
-/* IMPROVED: Clickable rows with hover effect */
 .data-row-clickable {
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.1s ease;
@@ -612,7 +580,7 @@ const formatTimestamp = (timestamp) => {
 }
 
 
-/* Badges for status and risk - IMPROVED CONTRAST */
+/* Badges for status and risk */
 .status-badge, .risk-badge {
     padding: 6px 12px;
     border-radius: 18px;
@@ -623,42 +591,25 @@ const formatTimestamp = (timestamp) => {
     min-width: 80px;
     text-align: center;
 }
-/* Health Status Badges - Text color explicitly set for contrast */
-.status-healthy { background-color: var(--success-color); color: #FFFFFF; }
-.status-unhealthy { background-color: var(--danger-color); color: #FFFFFF; }
-.status-observation { background-color: var(--warning-color); color: var(--text-dark); }
+/* Health Status Badges - Explicit text color for contrast */
+.status-healthy { background-color: var(--success-color); color: var(--text-light); }
+.status-unhealthy { background-color: var(--danger-color); color: var(--text-light); }
+/* No .status-observation related styling anymore */
 
 
-/* Risk Badges (your existing colors, good contrast) */
-.risk-badge.critical { background-color: var(--alert-critical-border); color: #FFFFFF; }
-.risk-badge.high { background-color: var(--alert-high-border); color: #FFFFFF; }
+/* Risk Badges */
+.risk-badge.critical { background-color: var(--alert-critical-border); color: var(--text-light); }
+.risk-badge.high { background-color: var(--alert-high-border); color: var(--text-light); }
 .risk-badge.medium { background-color: var(--alert-medium-border); color: var(--text-dark); }
-.risk-badge.low-medium { background-color: var(--alert-low-medium-border); color: #FFFFFF; }
-.risk-badge.low { background-color: var(--alert-low-border); color: var(--text-dark); } /* Changed to dark text on light green */
+.risk-badge.low-medium { background-color: var(--alert-low-medium-border); color: var(--text-light); }
+.risk-badge.low { background-color: var(--alert-low-border); color: var(--text-dark); }
 
-.badge-count {
-    background-color: var(--secondary-color);
-    color: var(--text-light);
-    padding: 4px 8px;
-    border-radius: 10px;
-    font-size: 0.75em;
-    font-weight: bold;
-    display: inline-block;
-    min-width: 25px;
-    text-align: center;
-}
-.badge-none {
-    background-color: #CFD8DC;
-}
-.badge-alerts {
-    background-color: var(--danger-color); /* Highlight for actual alerts */
-    color: white;
-}
+/* REMOVED: .badge-count, .badge-none, .badge-alerts styles */
 
 
-/* Action Button - FURTHER IMPROVED STYLING */
+/* Action Button - PRESERVED USER'S STYLES */
 .action-btn {
-    background: linear-gradient(145deg, var(--info-color), var(--accent-dark)); /* Subtle gradient */
+    background: green; /* User's requested background */
     color: var(--text-light);
     padding: 8px 15px;
     border: none;
@@ -666,14 +617,14 @@ const formatTimestamp = (timestamp) => {
     cursor: pointer;
     font-size: 0.9em;
     font-weight: 600;
-    transition: all 0.25s ease; /* Smoother transition */
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* More pronounced shadow */
-    display: inline-flex; /* For icon alignment if needed */
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 .action-btn:hover {
-    background: linear-gradient(145deg, var(--accent-dark), var(--info-color)); /* Reverse gradient on hover */
+    /* User's requested hover, without explicit background change */
     transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
 }
@@ -682,7 +633,7 @@ const formatTimestamp = (timestamp) => {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-/* Pagination Styles (existing, with disabled fix) */
+/* Pagination Styles */
 .pagination-controls {
     display: flex;
     justify-content: space-between;
@@ -730,7 +681,7 @@ const formatTimestamp = (timestamp) => {
     margin-top: 5px;
 }
 
-/* Modal Styles (New & Refined) */
+/* Modal Styles */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -749,7 +700,7 @@ const formatTimestamp = (timestamp) => {
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
     width: 90%;
-    max-width: 750px; /* Slightly wider modal */
+    max-width: 750px;
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
@@ -785,7 +736,7 @@ const formatTimestamp = (timestamp) => {
 .modal-body strong {
     color: var(--primary-dark);
 }
-.modal-info-grid { /* New grid for basic info in modal */
+.modal-info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 15px 30px;
@@ -796,14 +747,14 @@ const formatTimestamp = (timestamp) => {
 .modal-info-grid p {
     margin: 0;
 }
-.modal-info-grid span { /* Style for the values in the info grid */
+.modal-info-grid span {
     font-weight: 500;
     color: var(--text-dark);
 }
 
 .raw-data-display {
     background-color: #eceff1;
-    padding: 15px; /* Slightly more padding */
+    padding: 15px;
     border-radius: 8px;
     white-space: pre-wrap;
     word-break: break-all;
@@ -811,74 +762,28 @@ const formatTimestamp = (timestamp) => {
     font-size: 0.85em;
     color: #37474F;
     border: 1px solid #CFD8DC;
-    max-height: 250px; /* Increased height */
+    max-height: 250px;
     overflow-y: auto;
     margin-top: 10px;
     margin-bottom: 20px;
 }
-.modal-body h4 {
-    font-size: 1.25em; /* Slightly larger heading */
+.modal-body h4 { /* Now only applies to "Raw Input Data" header and future headers */
+    font-size: 1.25em;
     font-weight: 600;
-    color: var(--primary-color); /* Primary color for headings */
-    margin-top: 25px; /* More space */
+    color: var(--primary-color);
+    margin-top: 25px;
     margin-bottom: 12px;
 }
-.disease-list, .alerts-list {
-    list-style: none;
-    padding-left: 0;
-    margin-bottom: 20px;
-}
-.disease-list li, .alerts-list li {
-    background-color: #fcfcfc;
-    padding: 10px 15px; /* More padding */
-    border-radius: 8px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: flex-start; /* Align icon to top if text wraps */
-    gap: 10px;
-    border: 1px solid #e0e0e0;
-    color: var(--text-dark);
-    font-size: 0.95em;
-}
-.disease-list li i.fa-virus { /* Icon for disease list */
-    color: var(--danger-color);
-    font-size: 1.1em;
-    margin-top: 2px;
-}
-.alerts-list li span.alert-severity-badge { /* Ensure badge has margin */
-    margin-right: 5px;
-}
-/* No data messages in modal */
-.no-disease-message, .no-alert-message {
-    color: var(--text-secondary);
-    font-style: italic;
-    margin-left: 10px;
-    font-size: 0.95em;
-    margin-bottom: 20px;
-}
+/* REMOVED: .disease-list, .alerts-list, .disease-list li, .alerts-list li, .disease-list li i.fa-virus, .alerts-list li span.alert-severity-badge, .no-disease-message, .no-alert-message styles */
 
-.alert-severity-badge { /* Reusing existing styles for severity badges */
-    padding: 4px 8px;
-    border-radius: 10px;
-    font-size: 0.7em;
-    font-weight: 700;
-    text-transform: uppercase;
-    display: inline-block;
-    min-width: 60px;
-    text-align: center;
-}
-/* Specific text colors for alert severity badges */
-.alert-severity-critical { background-color: var(--alert-critical-border); color: #FFFFFF; }
-.alert-severity-high { background-color: var(--alert-high-border); color: #FFFFFF; }
-.alert-severity-medium { background-color: var(--alert-medium-border); color: var(--text-dark); }
-.alert-severity-low-medium { background-color: var(--alert-low-medium-border); color: #FFFFFF; }
-.alert-severity-low { background-color: var(--alert-low-border); color: var(--text-dark); }
+/* REMOVED: .alert-severity-badge and related styles as they are no longer used */
 
 
+/* Modal Action Button - PRESERVED USER'S STYLES */
 .modal-action-btn {
-    background: linear-gradient(145deg, var(--primary-color), var(--primary-dark)); /* Use primary colors for modal actions */
+    background: linear-gradient(145deg, var(--primary-color), var(--primary-dark)); /* User's requested gradient */
     color: var(--text-light);
-    padding: 12px 25px; /* More padding */
+    padding: 12px 25px;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -891,7 +796,7 @@ const formatTimestamp = (timestamp) => {
     box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 .modal-action-btn:hover {
-    background: linear-gradient(145deg, var(--primary-dark), var(--primary-color));
+    background: linear-gradient(145deg, var(--primary-dark), var(--primary-color)); /* User's requested hover gradient */
     transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
 }
@@ -912,7 +817,7 @@ const formatTimestamp = (timestamp) => {
   }
 }
 
-/* Responsive Table (existing, no changes except modal adjustments) */
+/* Responsive Table */
 @media (max-width: 768px) {
     .summary-grid {
         grid-template-columns: 1fr;
@@ -974,3 +879,4 @@ const formatTimestamp = (timestamp) => {
     }
 }
 </style>
+

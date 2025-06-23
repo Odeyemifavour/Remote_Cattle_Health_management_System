@@ -1,15 +1,12 @@
 <template>
-    <div v-if="!store.isAuthReady" class="message-center">
+    <div v-if="!store.isAuthReady" class="message-center loading-message">
         <p>Initializing authentication...</p>
-        <!-- Removed Temporary Debug Info -->
     </div>
     <div v-else class="dashboard-root">
         <SideBar :user-id="store.userId" @logout="handleLogout" />
 
         <div class="main-content">
             <TopNavbar :farm-name="'My Awesome Farm'" :user-id="store.userId" />
-            
-            <!-- Removed Temporary Debug Info -->
             
             <div class="content-area">
                 <router-view></router-view>
@@ -28,36 +25,51 @@ import TopNavbar from './components/dashboard/TopNavbar.vue';
 /* Global CSS variables and styles can go here, or in a separate global.css imported in main.js */
 /* For simplicity, I'll put the root CSS variables here and common styles */
 :root {
-    --primary-color: #4CAF50; /* A friendly green for actions/highlights */
-    --primary-dark: #388E3C;
+    /* PRIMARY THEME COLORS - Adjusted for higher contrast with white text */
+    --primary-color: #2E7D32; /* Darker Green: Ensures white text is highly legible on headers/buttons */
+    --primary-dark: #1B5E20; /* Even darker for strong hover states */
+    --primary-light: #4CAF50; /* A slightly lighter variant for gradients/accents */
+    
+    /* NEUTRAL COLORS */
     --secondary-bg: #263238; /* Deep blue-gray for sidebar/dark elements */
-    --text-dark: #424242; /* Main text color */
-    --text-light: #FAFAFA; /* Light text for dark backgrounds */
-    --text-secondary: #757575; /* Secondary text color */
-    --background-light: #F5F5F5; /* Overall light background */
-    --card-bg: #FFFFFF;
+    --text-dark: #000000;    /* Pure Black for maximum contrast on light backgrounds */
+    --text-light: #FFFFFF;   /* Pure White for maximum contrast on dark backgrounds */
+    --text-secondary: #757575; /* Secondary text color, still clear */
+    --background-light: #F8F8F8; /* Overall light background, slightly off-white */
+    --card-bg: #FFFFFF;      /* White for card backgrounds */
     --border-color: #E0E0E0; /* Light border for separation */
 
-    /* Alert Colors */
+    /* STATUS & ACTION COLORS - Adjusted for higher contrast */
+    --success-color: #388E3C; /* Dark Green for Healthy status - paired with white text */
+    --danger-color: #C62828;  /* Dark Red for Unhealthy status - paired with white text */
+    --info-color: #1976D2;    /* Dark Blue for info/action buttons - paired with white text */
+    --info-dark: #1565C0;     /* Even darker blue for info button hover state */
+    --warning-color: #FFC107; /* Amber Yellow for warnings/observation - requires dark text */
+    --accent-color: #00BCD4;  /* Cyan for other accents */
+    --accent-dark: #00838F;   /* Darker cyan for hover states (for accent-color) */
+    --secondary-color: #607D8B; /* Blue-grey for pagination/minor elements - typically paired with light text */
+    --text-muted: #9E9E9E;    /* Muted text for subtle info */
+
+    /* ALERT COLORS - Adjusted values for consistency and contrast */
     --alert-critical-bg: #FFEBEE; /* Light Red */
-    --alert-critical-border: #D32F2F; /* Dark Red */
-    --alert-critical-text: #C62828;
+    --alert-critical-border: #D32F2F; /* Red border - paired with white text for severity badges */
+    --alert-critical-text: #B71C1C; /* Darker red text for messages */
 
     --alert-high-bg: #FFF3E0; /* Light Orange */
-    --alert-high-border: #F57C00; /* Dark Orange */
-    --alert-high-text: #EF6C00;
+    --alert-high-border: #F57C00; /* Dark Orange border - paired with white text */
+    --alert-high-text: #E65100; /* Darker orange text */
 
     --alert-medium-bg: #FFFDE7; /* Light Yellow */
-    --alert-medium-border: #FFD600; /* Dark Yellow */
-    --alert-medium-text: #FFAB00;
+    --alert-medium-border: #FFD600; /* Yellow border - paired with dark text */
+    --alert-medium-text: #FFAB00; /* Darker yellow text */
 
     --alert-low-medium-bg: #E3F2FD; /* Light Blue */
-    --alert-low-medium-border: #2196F3; /* Standard Blue */
-    --alert-low-medium-text: #1976D2;
+    --alert-low-medium-border: #2196F3; /* Standard Blue border - paired with white text */
+    --alert-low-medium-text: #1565C0; /* Darker blue text */
 
     --alert-low-bg: #E8F5E9; /* Light Green */
-    --alert-low-border: #4CAF50; /* Standard Green */
-    --alert-low-text: #388E3C;
+    --alert-low-border: #4CAF50; /* Standard Green border - paired with dark text */
+    --alert-low-text: #388E3C; /* Darker green text */
 }
 
 /* Global Styles */
@@ -140,7 +152,7 @@ body {
     align-items: center;
     justify-content: center;
     height: 100vh; /* Occupy full viewport height */
-    color: var(--secondary-dark);
+    color: var(--text-secondary); /* Corrected from --secondary-dark */
     font-weight: 500;
 }
 .loading-message i {
@@ -185,3 +197,4 @@ body {
     }
 }
 </style>
+

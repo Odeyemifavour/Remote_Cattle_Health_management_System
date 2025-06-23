@@ -1,14 +1,15 @@
 <template>
     <div class="content-area">
-        <h2 class="card-title">Overview/Home</h2>
-        <div v-if="store.loading" class="message-center">
+        <h2 class="card-title">Dashboard Overview</h2> <!-- Changed title for consistency -->
+        <div v-if="store.loading" class="message-center loading-message">
             <i class="fa-solid fa-spinner fa-spin fa-2x"></i> Loading herd data...
         </div>
         <div v-else-if="store.error" class="error-message">
             <i class="fa-solid fa-circle-exclamation mr-2"></i> <span>{{ store.error }}</span>
+            <p>Please check your Flask API status and network connection.</p>
         </div>
         <div v-else>
-            <!-- Herd Health Status Cards -->
+            <!-- Herd Health Status Cards (Updated to remove Observation) -->
             <div class="health-status-grid mb-8">
                 <div class="status-card health-healthy">
                     <h3>Healthy</h3>
@@ -16,18 +17,20 @@
                     <p class="count">{{ herdHealth.healthy }}</p>
                     <span class="percentage">({{ herdHealth.healthyPercentage }}%)</span>
                 </div>
-                <div class="status-card health-at-risk">
-                    <h3>At Risk</h3>
+                <div class="status-card health-unhealthy"> <!-- Changed class from health-at-risk -->
+                    <h3>Unhealthy</h3> <!-- Changed title from At Risk -->
                     <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
-                    <p class="count">{{ herdHealth.atRisk }}</p>
-                    <span class="percentage">({{ herdHealth.atRiskPercentage }}%)</span>
+                    <p class="count">{{ herdHealth.unhealthy }}</p> <!-- Changed from herdHealth.atRisk -->
+                    <span class="percentage">({{ herdHealth.unhealthyPercentage }}%)</span> <!-- Changed from herdHealth.atRiskPercentage -->
                 </div>
+                <!-- Removed: Observation Card
                 <div class="status-card health-observation">
                     <h3>Under Observation</h3>
                     <i class="fa-solid fa-eye fa-2x"></i>
                     <p class="count">{{ herdHealth.underObservation }}</p>
                     <span class="percentage">({{ herdHealth.underObservationPercentage }}%)</span>
                 </div>
+                -->
             </div>
 
             <!-- Recent Critical Alerts Section -->
@@ -43,7 +46,7 @@
                         </router-link>
                     </li>
                 </ul>
-                <p v-else class="message-center">No recent critical alerts.</p>
+                <p v-else class="message-center no-alerts-message">No recent critical alerts.</p>
                 <button @click="$router.push('/alerts')" class="view-all-alerts-button">
                     View All Alerts <i class="fa-solid fa-arrow-right ml-2"></i>
                 </button>
@@ -120,43 +123,57 @@ let riskLevelChart = null;
 let feverIndexChart = null;
 let productivityScoreChart = null;
 
-// --- Herd Health Summary (Computed from store.cattleData) ---
-const herdHealth = computed(() => {
-    const latestCattle = {};
-    store.cattleData.forEach(cattle => {
-        if (cattle.monitoring_results && cattle.monitoring_results.health_status && cattle.cattle_id) {
-            if (!latestCattle[cattle.cattle_id] || new Date(cattle.timestamp) > new Date(latestCattle[cattle.cattle_id].timestamp)) {
-                latestCattle[cattle.cattle_id] = cattle;
+// Modal state
+const showAddAnimalModal = ref(false);
+const openAddAnimalModal = () => {
+    showAddAnimalModal.value = true;
+};
+const closeAddAnimalModal = () => {
+    showAddAnimalModal.value = false;
+};
+
+// Computed property for the latest entry for each cattle ID
+const filteredCattle = computed(() => {
+    const latestEntries = {};
+    (store.cattleData || []).forEach(cattle => {
+        if (cattle.monitoring_results && cattle.cattle_id) {
+            if (!latestEntries[cattle.cattle_id] || new Date(cattle.timestamp) > new Date(latestEntries[cattle.cattle_id].timestamp)) {
+                latestEntries[cattle.cattle_id] = cattle;
             }
         }
     });
+    // Map to ensure healthStatusDisplay is capitalized "Healthy" or "Unhealthy"
+    return Object.values(latestEntries).map(cattle => {
+        const healthStatus = cattle.monitoring_results.health_status;
+        return {
+            ...cattle,
+            healthStatusDisplay: healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1).toLowerCase(), 
+            riskLevel: cattle.monitoring_results.risk_level // Ensure riskLevel is also available
+        };
+    });
+});
 
+// --- Herd Health Summary (Computed from store.cattleData) - UPDATED ---
+const herdHealth = computed(() => {
     let healthy = 0;
-    let atRisk = 0;
-    let underObservation = 0;
-    const total = Object.keys(latestCattle).length;
+    let unhealthy = 0; // Changed 'atRisk' to 'unhealthy' for consistency
+    const total = filteredCattle.value.length; // Use filteredCattle for latest unique cattle
 
-    Object.values(latestCattle).forEach(cattle => {
-        const status = cattle.monitoring_results.health_status.toLowerCase();
-        const risk = cattle.monitoring_results.risk_level.toLowerCase();
-
-        if (status === 'healthy' && risk === 'low') {
+    filteredCattle.value.forEach(cattle => {
+        // Now directly use healthStatusDisplay which is already "Healthy" or "Unhealthy"
+        if (cattle.healthStatusDisplay === 'Healthy') {
             healthy++;
-        } else if (status === 'unhealthy' && (risk === 'critical' || risk === 'high')) {
-            atRisk++;
-        } else { // Includes healthy with higher risk, or unhealthy with lower/medium risk
-            underObservation++;
+        } else if (cattle.healthStatusDisplay === 'Unhealthy') {
+            unhealthy++;
         }
     });
 
     return {
         healthy,
-        atRisk,
-        underObservation,
-        totalHerdCount: total,
+        unhealthy, // Renamed from atRisk
+        total, // Renamed from totalHerdCount for clarity
         healthyPercentage: total > 0 ? ((healthy / total) * 100).toFixed(1) : 0,
-        atRiskPercentage: total > 0 ? ((atRisk / total) * 100).toFixed(1) : 0,
-        underObservationPercentage: total > 0 ? ((underObservation / total) * 100).toFixed(1) : 0,
+        unhealthyPercentage: total > 0 ? ((unhealthy / total) * 100).toFixed(1) : 0, // Renamed
     };
 });
 
@@ -168,8 +185,7 @@ const recentCriticalAlerts = computed(() => {
         .slice(0, 3); // Display top 3 critical alerts
 });
 
-// --- Dummy Trend Data for Charts (Static for now, but can be derived from store.cattleData history later) ---
-// In a full application, these would be aggregated from historical `store.cattleData`.
+// --- Dummy Trend Data for Charts ---
 const trendData = reactive({
     riskLevel: [10, 15, 12, 18, 16, 20, 17], // Example values, higher = worse
     feverIndex: [2.1, 2.3, 2.2, 2.5, 2.4, 2.6, 2.5], // Example values, higher = worse
@@ -177,15 +193,6 @@ const trendData = reactive({
     labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
 });
 
-
-// Modal state
-const showAddAnimalModal = ref(false);
-const openAddAnimalModal = () => {
-    showAddAnimalModal.value = true;
-};
-const closeAddAnimalModal = () => {
-    showAddAnimalModal.value = false;
-};
 
 // --- Chart Initialization and Update Functions ---
 
@@ -323,16 +330,12 @@ onMounted(() => {
     updateAllCharts(); // Initial chart rendering
 
     // Watch for changes in store.cattleData or store.activeAlerts
-    // Although trendData is static, herdHealth and recentCriticalAlerts update reactively.
-    // If you were to make trendData dynamic based on store.cattleData,
-    // you would include store.cattleData as a dependency here.
     watch(() => store.cattleData.length, () => {
-        // Recalculate herdHealth and critical alerts implicitly
-        // Re-render charts only if their underlying data also changes (which trendData doesn't right now)
-        // If trendData was computed from store.cattleData, updateAllCharts would be needed here.
+        // herdHealth and recentCriticalAlerts computed properties will react to changes
+        // If trendData was dynamic based on store.cattleData, updateAllCharts would be needed here.
     });
     watch(() => store.activeAlerts.length, () => {
-        // Recalculate recentCriticalAlerts
+        // recentCriticalAlerts computed property will react to changes
     });
 });
 
@@ -358,6 +361,12 @@ const formatTimestamp = (timestampString) => {
         hour12: true
     });
 };
+
+// Utility function for alert severity class
+const getAlertSeverityClass = (severity) => {
+    return `alert-severity-${severity?.toLowerCase().replace(' ', '-')}`;
+};
+
 </script>
 
 <style scoped>
@@ -411,10 +420,10 @@ const formatTimestamp = (timestampString) => {
     margin-top: 5px;
 }
 
-/* Specific colors for status cards */
-.status-card.health-healthy i, .status-card.health-healthy .count { color: var(--primary-color); }
-.status-card.health-at-risk i, .status-card.health-at-risk .count { color: var(--alert-critical-border); }
-.status-card.health-observation i, .status-card.health-observation .count { color: var(--alert-high-border); }
+/* Specific colors for status cards (UPDATED) */
+.status-card.health-healthy i, .status-card.health-healthy .count { color: var(--success-color); }
+.status-card.health-unhealthy i, .status-card.health-unhealthy .count { color: var(--danger-color); } /* Updated to use danger-color */
+/* Removed: .status-card.health-at-risk and .status-card.health-observation styles */
 
 
 /* Recent Alerts Card */
@@ -432,16 +441,18 @@ const formatTimestamp = (timestampString) => {
 }
 
 .alert-item {
-    background-color: var(--alert-critical-bg);
-    border: 1px solid var(--alert-critical-border);
-    border-left: 8px solid var(--alert-critical-border);
+    display: flex;
+    align-items: flex-start;
+    padding: 15px 20px;
     border-radius: 8px;
     margin-bottom: 12px;
-    padding: 15px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg); /* Default background */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
 }
 .alert-item:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
@@ -451,6 +462,7 @@ const formatTimestamp = (timestampString) => {
     text-decoration: none;
     color: var(--text-dark);
     font-weight: 500;
+    width: 100%; /* Ensure link takes full width */
 }
 
 .alert-icon {
@@ -496,6 +508,15 @@ const formatTimestamp = (timestampString) => {
     background-color: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+/* No alerts message */
+.no-alerts-message {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 1.1em;
 }
 
 
@@ -693,7 +714,7 @@ const formatTimestamp = (timestampString) => {
     }
     .view-all-alerts-button {
         width: 100%;
-        margin-right: auto; /* Center button on small screens */
+        margin-right: auto;
         margin-left: auto;
     }
 }
