@@ -16,24 +16,8 @@
                 </router-link>
             </li>
             <li>
-                <router-link to="/add-data" active-class="active" class="nav-link">
-                    <i class="fa-solid fa-plus-circle fa-icon"></i> Add Cattle Data
-                </router-link>
-            </li>
-            <li>
-                <router-link to="/predict-cattle" active-class="active" class="nav-link">
-                    <i class="fa-solid fa-stethoscope fa-icon"></i> Cattle Prediction
-                </router-link>
-            </li>
-            
-            <li>
                 <router-link to="/realtime-simulation" active-class="active" class="nav-link">
                     <i class="fa-solid fa-sync-alt fa-icon"></i> Real-time Simulator
-                </router-link>
-            </li>
-            <li>
-                <router-link to="/dashboard/cattle" active-class="active" class="nav-link">
-                    <i class="fa-solid fa-info-circle fa-icon"></i> Cattle Information
                 </router-link>
             </li>
             <li>
@@ -44,6 +28,11 @@
             <li>
                 <router-link to="/prediction-log" active-class="active" class="nav-link">
                     <i class="fa-solid fa-chart-line fa-icon"></i> Predictions Log
+                </router-link>
+            </li>
+            <li>
+                <router-link to="/predict-cattle" active-class="active" class="nav-link">
+                    <i class="fa-solid fa-stethoscope fa-icon"></i> Cattle Prediction
                 </router-link>
             </li>
             <li>
