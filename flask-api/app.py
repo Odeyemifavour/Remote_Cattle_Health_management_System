@@ -37,7 +37,7 @@ except Exception as e:
     print("Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set for local runs.")
 
 
-# --- IMPORTANT: Define the EXACT feature order from your training ---
+# --- IMPORTANT: EXACT feature order from  training ---
 training_features_for_model = [
     'body_temperature', 'breed_type_enc', 'milk_production', 'respiratory_rate',
     'walking_capacity', 'sleeping_duration', 'body_condition_score', 'heart_rate',

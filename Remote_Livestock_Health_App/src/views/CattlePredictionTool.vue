@@ -2,7 +2,7 @@
     <div class="content-area">
         <div class="card">
             <h2 class="card-title">Cattle Health Prediction</h2>
-            <p>Input the cattle's physiological data to get a health prediction and alerts from the AI model.</p>
+            <p>Input the cattle's data to get a health prediction and alerts from the AI model.</p>
 
             <!-- Loading & Error Messages -->
             <div v-if="loading" class="message-center loading-message">
@@ -73,9 +73,7 @@
                             <option value="">Select Breed</option>
                             <option value="Cross Breed">Cross Breed</option>
                             <option value="Normal Breed">Normal Breed</option>
-                            <option value="Holstein">Holstein</option>
-                            <option value="Indigenous Breed">Indigenous Breed</option>
-                            <!-- Add other breeds as per your training data if necessary -->
+                            
                         </select>
                     </div>
                     <div class="form-group">
@@ -87,8 +85,7 @@
                             <option value="Black faeces">Black Faeces</option>
                             <option value="Fresh blood in faeces">Fresh Blood in Faeces</option>
                             <option value="very liquid faeces">Very Liquid Faeces</option>
-                            <option value="Black faece">Black Faeces (Alternative)</option>
-                            <!-- Add other consistencies as per your training data -->
+                            <option value="Black faece">Black Faeces</option>
                         </select>
                     </div>
                 </div>
@@ -101,49 +98,36 @@
 
         <!-- Prediction Results Display -->
         <div v-if="predictionResult" class="card prediction-results">
-            <h3 class="card-title">Prediction Results for {{ predictionResult.cattle_id }}</h3>
+            <h3 class="card-title">Prediction Results for CATTLE_0{{ predictionResult.cattle_id }}</h3>
 
             <div class="result-section">
-                <h4>Monitoring Results:</h4>
-                <p><strong>Health Status:</strong>
+                <h4>Monitoring Results: </h4>
+                <p><strong>Health Status: </strong>
                     <span :class="getHealthStatusClass(predictionResult.monitoring_results.health_status)">
                         {{ predictionResult.monitoring_results.health_status }}
                     </span>
                 </p>
-                <p><strong>Confidence:</strong> {{ predictionResult.monitoring_results.confidence }}</p>
-                <p><strong>Risk Level:</strong>
+                <p><strong>Health Confidence Rate: </strong> {{ predictionResult.monitoring_results.confidence }}</p>
+                <p><strong>Risk Level: </strong>
                     <span :class="getRiskLevelClass(predictionResult.monitoring_results.risk_level)">
                         {{ predictionResult.monitoring_results.risk_level }}
                     </span>
                 </p>
-                <p><strong>Timestamp:</strong> {{ predictionResult.timestamp }}</p>
+                <p><strong>Timestamp: </strong> {{ predictionResult.timestamp }}</p>
             </div>
-
-            <div v-if="predictionResult.ml_predictions_detail" class="result-section">
-                <h4>ML Predictions Detail:</h4>
-                <p><strong>Predicted Class:</strong> {{ predictionResult.ml_predictions_detail.predicted_class }}</p>
-                <p><strong>Prediction Probabilities:</strong></p>
-                <ul>
-                    <li v-for="(prob, class_name) in predictionResult.ml_predictions_detail.prediction_probabilities" :key="class_name">
-                        {{ class_name }}: {{ prob }}%
-                    </li>
-                </ul>
-            </div>
-
             <div v-if="predictionResult.specific_diseases_detected && predictionResult.specific_diseases_detected.length > 0" class="result-section">
-                <h4>Specific Diseases Detected (Rule-Based):</h4>
+                <h4>Specific Diseases Detected: </h4>
                 <ul>
                     <li v-for="disease in predictionResult.specific_diseases_detected" :key="disease">{{ disease }}</li>
                 </ul>
             </div>
 
             <div v-if="predictionResult.alerts && predictionResult.alerts.length > 0" class="result-section">
-                <h4>Active Alerts:</h4>
+                <h4>Observations from animal data: </h4>
                 <div v-for="alert in predictionResult.alerts" :key="alert.message" :class="getAlertClass(alert.severity)">
-                    <p><strong>Severity:</strong> {{ alert.severity }}</p>
-                    <p><strong>Message:</strong> {{ alert.message }}</p>
-                    <p v-if="alert.indicator"><strong>Indicator:</strong> {{ alert.indicator }}</p>
-                    <p v-if="alert.value"><strong>Value:</strong> {{ alert.value }}</p>
+                    <p> {{ alert.message }}</p>
+                    <p v-if="alert.indicator"><strong>Indicator: </strong> {{ alert.indicator }}</p>
+                    
                 </div>
             </div>
 

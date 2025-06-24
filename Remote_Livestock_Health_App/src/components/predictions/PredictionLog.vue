@@ -16,9 +16,8 @@
                         <th>Timestamp</th>
                         <th>Health Status</th>
                         <th>Risk Level</th>
-                        <th>Confidence</th>
+                        <th>Health Confidence Rate</th>
                         <th>Diseases Detected</th>
-                        <th>Alerts Count</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -37,7 +36,6 @@
                         </td>
                         <td>{{ log.monitoring_results.confidence }}</td>
                         <td>{{ log.specific_diseases_detected.join(', ') || 'None' }}</td>
-                        <td>{{ log.alerts ? log.alerts.length : 0 }}</td>
                     </tr>
                 </tbody>
             </table>

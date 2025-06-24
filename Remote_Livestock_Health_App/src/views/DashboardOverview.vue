@@ -87,9 +87,6 @@
                     <button @click="$router.push('/dashboard/herd-dashboard')" class="action-button secondary-action">
                         <i class="fa-solid fa-chart-bar mr-2"></i> View Herd Dashboard
                     </button>
-                    <button @click="$router.push('/add-data')" class="action-button tertiary-action">
-                        <i class="fa-solid fa-database mr-2"></i> Input Daily Data
-                    </button>
                 </div>
             </div>
 
@@ -110,8 +107,6 @@
 import { ref, onMounted, onUnmounted, computed, watch, reactive } from 'vue';
 import { store } from '../main.js'; // Import the global store
 
-// IMPORTANT: Chart.js is loaded via CDN in index.html, so it's available globally as window.Chart
-// Do NOT import Chart from 'chart.js/auto'; here.
 
 // Refs for Chart.js canvas elements
 const riskLevelChartCanvas = ref(null);

@@ -103,15 +103,13 @@ const generateDummyData = () => {
         }
     }
 
-    // Add specific triggers for rule-based alerts to appear more often in simulation
-    // NOTE: Alerts are removed from display, but simulator can still generate data that might trigger them in backend.
     if (Math.random() < 0.2) { // 20% chance for critical temp/resp
         data.body_temperature = parseFloat((40.0 + Math.random() * 1.0).toFixed(1));
         data.respiratory_rate = Math.floor(48 + Math.random() * 10);
         data.heart_rate = Math.floor(85 + Math.random() * 15);
     }
     if (Math.random() < 0.1) { // 10% chance for abnormal faeces
-        data.faecal_consistency = ['watery', 'Black faece', 'Fresh blood in faeces', 'very liquid faeces'][Math.floor(Math.random() * 4)];
+        data.faecal_consistency = ['watery', 'Black faece', 'Fresh blood in faeces', 'very liquid faeces', 'extremely firm'][Math.floor(Math.random() * 5)];
     }
     if (Math.random() < 0.05) { // 5% chance for low milk production
         data.milk_production = parseFloat((3 + Math.random() * 4).toFixed(1));

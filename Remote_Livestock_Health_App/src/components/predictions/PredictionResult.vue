@@ -3,7 +3,7 @@
         <h3 class="card-title-small text-lg">Prediction Details ({{ formatTimestamp(data.timestamp) }})</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <p><strong>Cattle ID:</strong> {{ data.cattle_id }}</p>
+                <p><strong>Cattle ID:</strong> CATTLE_{{ data.cattle_id }}</p>
                 <p><strong>Health Status:</strong>
                     <span :class="['status-badge', getStatusClass(data.monitoring_results.health_status)]">
                         {{ data.monitoring_results.health_status }}

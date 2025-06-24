@@ -143,10 +143,6 @@
 
                     <h4>Raw Input Data:</h4>
                     <pre class="raw-data-display">{{ JSON.stringify(selectedCattleDetails.input_data_snapshot, null, 2) }}</pre>
-
-                    <!-- REMOVED: Detected Diseases section -->
-                    <!-- REMOVED: Active Alerts section -->
-                    
                     <button @click="goToCattleInformation(selectedCattleDetails.cattle_id)" class="modal-action-btn mt-4">
                         Go to Detailed Log <i class="fa-solid fa-arrow-right icon-margin-left"></i>
                     </button>
