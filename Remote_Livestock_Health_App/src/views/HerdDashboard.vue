@@ -78,7 +78,7 @@
                             <th @click="sortBy('breedTypeDisplay')">Breed Type <i :class="getSortIcon('breedTypeDisplay')"></i></th>
                             <th @click="sortBy('timestamp')">Last Updated <i :class="getSortIcon('timestamp')"></i></th>
                             <th>Actions</th>
-                            <!-- REMOVED: Alerts column header -->
+                            <!-- REMOVED: Alerts count column -->
                         </tr>
                     </thead>
                     <tbody>
@@ -123,11 +123,12 @@
                 <button class="modal-close-button" @click="closeDetailsModal">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
+                <!-- FIXED: Modal Title -->
                 <h3 class="modal-title">Details for {{ selectedCattleDetails.cattle_id }}</h3>
                 <div class="modal-body">
                     <div class="modal-info-grid">
-                        <p><strong>Last Updated:</strong> <span>{{ formatTimestamp(selectedCattleDetails.timestamp) }}</span></p>
-                        <p><strong>Health Status:</strong> 
+                        <p><strong>Last Updated: </strong> <span>{{ formatTimestamp(selectedCattleDetails.timestamp) }}</span></p>
+                        <p><strong>Health Status: </strong> 
                             <span :class="['status-badge', healthClass(selectedCattleDetails.healthStatusDisplay)]">
                                 {{ selectedCattleDetails.healthStatusDisplay }}
                             </span>
@@ -137,11 +138,30 @@
                                 {{ selectedCattleDetails.riskLevel }}
                             </span>
                         </p>
-                        <p><strong>Breed Type:</strong> <span>{{ selectedCattleDetails.breedTypeDisplay }}</span></p> <!-- Uses simplified breed type in modal -->
-                        <p><strong>Confidence:</strong> <span>{{ selectedCattleDetails.monitoring_results?.confidence || 'N/A' }}</span></p>
+                        <p><strong>Breed Type: </strong> <span>{{ selectedCattleDetails.breedTypeDisplay }}</span></p>
+                        <p><strong>Confidence: </strong> <span>{{ selectedCattleDetails.monitoring_results?.confidence || 'N/A' }}</span></p>
                     </div>
 
-                    <h4>Raw Input Data:</h4>
+                    <!-- RE-ADDED: Detected Diseases section -->
+                    <h4 v-if="selectedCattleDetails.specific_diseases_detected?.length > 0">Detected Diseases:</h4>
+                    <ul v-if="selectedCattleDetails.specific_diseases_detected?.length > 0" class="disease-list">
+                        <li v-for="disease in selectedCattleDetails.specific_diseases_detected" :key="disease">
+                            <i class="fa-solid fa-virus"></i> {{ disease }}
+                        </li>
+                    </ul>
+                    <p v-else class="no-disease-message">No specific diseases detected.</p>
+
+                    <!-- RE-ADDED & FIXED: Observations from animal data (alerts) -->
+                    <h4 v-if="selectedCattleDetails.alerts?.length > 0">Observations from animal data:</h4>
+                    <div v-if="selectedCattleDetails.alerts?.length > 0" class="alerts-observations-list">
+                        <div v-for="alert in selectedCattleDetails.alerts" :key="alert.message" :class="getAlertClass(alert.severity)">
+                            <p> {{ alert.message }}</p>
+                            <p v-if="alert.indicator"><strong>Indicator: </strong> {{ alert.indicator }}</p>
+                        </div>
+                    </div>
+                    <p v-else class="no-alert-message">No specific observations for this cattle.</p>
+
+                    <h4>Raw Input Data: </h4>
                     <pre class="raw-data-display">{{ JSON.stringify(selectedCattleDetails.input_data_snapshot, null, 2) }}</pre>
                     <button @click="goToCattleInformation(selectedCattleDetails.cattle_id)" class="modal-action-btn mt-4">
                         Go to Detailed Log <i class="fa-solid fa-arrow-right icon-margin-left"></i>
@@ -154,7 +174,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { store } from '../main.js';
+import { store } from '../main.js'; // Import the global store
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -169,6 +189,8 @@ const currentPage = ref(1);
 // Modal state
 const showDetailsModal = ref(false);
 const selectedCattleDetails = ref(null);
+// REMOVED: predictionResult = ref(null); // No longer needed as we use selectedCattleDetails directly
+
 
 console.log('HerdDashboard: Component loaded.');
 watch(() => store.cattleData, (newValue) => {
@@ -178,17 +200,18 @@ watch(() => store.cattleData, (newValue) => {
 
 // Computed properties for summary statistics (UPDATED for breed type and removed Observation)
 const latestCattleDataProcessed = computed(() => {
-    const latestEntries = {};
+    const latestEntries = new Map(); // Use Map for correct unique key handling and robustness
+    // Ensure store.cattleData is an array before iterating
     (store.cattleData || []).forEach(cattle => {
         if (cattle.monitoring_results && cattle.monitoring_results.health_status && cattle.cattle_id) {
-            if (!latestEntries[cattle.cattle_id] || new Date(cattle.timestamp) > new Date(latestEntries[cattle.cattle_id].timestamp)) {
-                latestEntries[cattle.cattle_id] = cattle;
+            const existing = latestEntries.get(cattle.cattle_id); // Get existing entry from Map
+            if (!existing || new Date(cattle.timestamp) > new Date(existing.timestamp)) {
+                latestEntries.set(cattle.cattle_id, cattle); // Use Map.set for correct update
             }
         }
     });
 
-    return Object.values(latestEntries).map(cattle => {
-        // Ensure health status is capitalized "Healthy" or "Unhealthy" only
+    return Array.from(latestEntries.values()).map(cattle => { // Ensure return is an array from map values
         const healthStatus = cattle.monitoring_results.health_status;
         const riskLevel = cattle.monitoring_results.risk_level;
         const rawBreedType = cattle.input_data_snapshot?.breed_type;
@@ -217,19 +240,21 @@ const latestCattleDataProcessed = computed(() => {
 });
 
 const healthyCattleCount = computed(() => {
-    return latestCattleDataProcessed.value.filter(c => c.healthStatusDisplay === 'Healthy').length;
+    // Defensive check: Ensure latestCattleDataProcessed.value is an array
+    return (latestCattleDataProcessed.value || []).filter(c => c.healthStatusDisplay === 'Healthy').length;
 });
 
 const unhealthyCattleCount = computed(() => {
-    return latestCattleDataProcessed.value.filter(c => c.healthStatusDisplay === 'Unhealthy').length;
+    // Defensive check: Ensure latestCattleDataProcessed.value is an array
+    return (latestCattleDataProcessed.value || []).filter(c => c.healthStatusDisplay === 'Unhealthy').length;
 });
 
-// REMOVED: observationCattleCount
 
 
 // Filter and sort cattle data (UPDATED for breed type and removed Observation & Alerts.length)
 const filteredAndSortedCattle = computed(() => {
-    let data = [...latestCattleDataProcessed.value];
+    // DEFENSIVE FIX: Ensure data is always an array before starting operations
+    let data = [...(latestCattleDataProcessed.value || [])];
 
     // 1. Filter
     if (searchTerm.value) {
@@ -292,9 +317,11 @@ const filteredAndSortedCattle = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredAndSortedCattle.value.length / itemsPerPage));
 
 const paginatedCattle = computed(() => {
+    // Defensive check for paginatedCattle too
+    const dataToPaginate = filteredAndSortedCattle.value || [];
     const start = (currentPage.value - 1) * itemsPerPage;
     const end = start + itemsPerPage;
-    return filteredAndSortedCattle.value.slice(start, end);
+    return dataToPaginate.slice(start, end);
 });
 
 const prevPage = () => {
@@ -329,11 +356,9 @@ const getSortIcon = (field) => {
     return 'fa-solid fa-sort';
 };
 
-// Styling helpers (UPDATED - removed Observation logic)
 function healthClass(statusDisplay) {
     if (statusDisplay === 'Healthy') return 'status-healthy';
     if (statusDisplay === 'Unhealthy') return 'status-unhealthy';
-    // No 'Observation' case anymore
     return ''; 
 }
 
@@ -341,10 +366,11 @@ const getRiskClass = (risk) => {
     return `risk-${risk?.toLowerCase().replace(' ', '-')}`;
 };
 
-const getAlertSeverityClass = (severity) => {
-    // This function will likely not be called if alert sections are removed from UI
-    return `alert-severity-${severity?.toLowerCase().replace(' ', '-')}`;
+// NEW/FIXED: Function to get specific alert class for observations
+const getAlertClass = (severity) => {
+    return `alert-observation-${severity?.toLowerCase().replace(' ', '-')}`;
 };
+
 
 // Modals functions remain the same
 const openDetailsModal = (cattle) => {
@@ -770,9 +796,76 @@ const formatTimestamp = (timestamp) => {
     margin-top: 25px;
     margin-bottom: 12px;
 }
-/* REMOVED: .disease-list, .alerts-list, .disease-list li, .alerts-list li, .disease-list li i.fa-virus, .alerts-list li span.alert-severity-badge, .no-disease-message, .no-alert-message styles */
+/* Re-added disease list styles */
+.disease-list, .alerts-observations-list { /* Combined style for consistency */
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 20px;
+}
+.disease-list li {
+    background-color: #fcfcfc;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid #e0e0e0;
+    color: var(--text-dark);
+    font-size: 0.95em;
+}
+.disease-list li i.fa-virus {
+    color: var(--danger-color);
+    font-size: 1.1em;
+    margin-top: 2px;
+}
+.no-disease-message, .no-alert-message {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-left: 10px;
+    font-size: 0.95em;
+    margin-bottom: 20px;
+}
 
-/* REMOVED: .alert-severity-badge and related styles as they are no longer used */
+/* Styles for the "Observations from animal data" section based on alert severity */
+.alerts-observations-list div {
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    line-height: 1.4;
+    border: 1px solid; /* Generic border for these observation boxes */
+}
+.alerts-observations-list p {
+    margin: 0; /* Reset default paragraph margin */
+}
+
+/* Specific alert severity classes for Observations section */
+.alert-observation-critical { 
+    background-color: var(--alert-critical-bg); 
+    color: var(--alert-critical-text); 
+    border-color: var(--alert-critical-border);
+}
+.alert-observation-high { 
+    background-color: var(--alert-high-bg); 
+    color: var(--alert-high-text); 
+    border-color: var(--alert-high-border);
+}
+.alert-observation-medium { 
+    background-color: var(--alert-medium-bg); 
+    color: var(--alert-medium-text); 
+    border-color: var(--alert-medium-border);
+}
+.alert-observation-low-medium { 
+    background-color: var(--alert-low-medium-bg); 
+    color: var(--alert-low-medium-text); 
+    border-color: var(--alert-low-medium-border);
+}
+.alert-observation-low { 
+    background-color: var(--alert-low-bg); 
+    color: var(--alert-low-text); 
+    border-color: var(--alert-low-border);
+}
 
 
 /* Modal Action Button - PRESERVED USER'S STYLES */
@@ -875,4 +968,3 @@ const formatTimestamp = (timestamp) => {
     }
 }
 </style>
-
