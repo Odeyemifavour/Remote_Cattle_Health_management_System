@@ -10,7 +10,7 @@
         </div>
 
         <div v-else>
-            <!-- Summary Statistics Section (Removed Observation) -->
+            
             <div class="card summary-card mb-8">
                 <h3 class="card-title-small">Herd Overview</h3>
                 <div class="summary-grid">
@@ -139,7 +139,7 @@
                             </span>
                         </p>
                         <p><strong>Breed Type: </strong> <span>{{ selectedCattleDetails.breedTypeDisplay }}</span></p>
-                        <p><strong>Confidence: </strong> <span>{{ selectedCattleDetails.monitoring_results?.confidence || 'N/A' }}</span></p>
+                        <p><strong>Health Confidence Rate: </strong> <span>{{ selectedCattleDetails.monitoring_results?.confidence || 'N/A' }}</span></p>
                     </div>
 
                     <!-- RE-ADDED: Detected Diseases section -->
@@ -189,7 +189,6 @@ const currentPage = ref(1);
 // Modal state
 const showDetailsModal = ref(false);
 const selectedCattleDetails = ref(null);
-// REMOVED: predictionResult = ref(null); // No longer needed as we use selectedCattleDetails directly
 
 
 console.log('HerdDashboard: Component loaded.');
@@ -198,10 +197,8 @@ watch(() => store.cattleData, (newValue) => {
 }, { immediate: true });
 
 
-// Computed properties for summary statistics (UPDATED for breed type and removed Observation)
 const latestCattleDataProcessed = computed(() => {
     const latestEntries = new Map(); // Use Map for correct unique key handling and robustness
-    // Ensure store.cattleData is an array before iterating
     (store.cattleData || []).forEach(cattle => {
         if (cattle.monitoring_results && cattle.monitoring_results.health_status && cattle.cattle_id) {
             const existing = latestEntries.get(cattle.cattle_id); // Get existing entry from Map
@@ -215,19 +212,20 @@ const latestCattleDataProcessed = computed(() => {
         const healthStatus = cattle.monitoring_results.health_status;
         const riskLevel = cattle.monitoring_results.risk_level;
         const rawBreedType = cattle.input_data_snapshot?.breed_type;
+        const breedTypeDisplay = rawBreedType;
 
         // Logic to categorize breed type - No "N/A", always "Normal Breed" or "Cross Breed"
-        let breedTypeDisplay = 'Normal Breed'; // Default to Normal Breed
-        if (rawBreedType) {
-            const lowerBreed = rawBreedType.toLowerCase();
-            // If it contains "cross" or has more than one word, categorize as "Cross Breed"
-            // Example: "Jersey Cross", "Holstein Friesian", "Mixed Breed" -> "Cross Breed"
-            if (lowerBreed.includes('cross') || lowerBreed.split(' ').length > 1) {
-                breedTypeDisplay = 'Cross Breed';
-            } else {
-                breedTypeDisplay = 'Normal Breed';
-            }
-        }
+        // let breedTypeDisplay = 'Normal Breed'; // Default to Normal Breed
+        // if (rawBreedType) {
+        //     const lowerBreed = rawBreedType.toLowerCase();
+        //     // If it contains "cross" or has more than one word, categorize as "Cross Breed"
+        //     // Example: "Jersey Cross", "Holstein Friesian", "Mixed Breed" -> "Cross Breed"
+        //     if (lowerBreed.includes('cross') || lowerBreed.split(' ').length > 1) {
+        //         breedTypeDisplay = 'Cross Breed';
+        //     } else {
+        //         breedTypeDisplay = 'Normal Breed';
+        //     }
+        // }
 
         return {
             ...cattle,
