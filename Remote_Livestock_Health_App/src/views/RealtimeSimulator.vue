@@ -56,7 +56,7 @@ const simulationLog = reactive([]); // Store a log of recent results
 const cattleIdCounter = ref(1); // To generate unique cattle IDs for simulation
 
 // Get the API URL from the environment variable defined in render.yaml
-const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const apiBaseUrl = 'https://remote-cattle-health-management-system.onrender.com';
 
 // Helper functions for dynamic styling
 const getStatusClass = (status) => {
