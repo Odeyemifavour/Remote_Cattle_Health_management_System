@@ -1,8 +1,4 @@
-# app.py (Your Flask application file)
-#set GOOGLE_APPLICATION_CREDENTIALS=C:\Users\DELL\Downloads\DATASETS\CATTLE HEALTH MANAGEMENT APP\Remote_Cattle_Health_management_System\flask-api\firebase-key.json
-
-print("--- APP.PY EXECUTION STARTED ---")
-
+# Import necessary libraries
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -37,7 +33,7 @@ except Exception as e:
     print("Ensure GOOGLE_APPLICATION_CREDENTIALS environment variable is set for local runs.")
 
 
-# --- IMPORTANT: EXACT feature order from  training ---
+# --- IMPORTANT: EXACT feature order from  training ---
 training_features_for_model = [
     'body_temperature', 'breed_type_enc', 'milk_production', 'respiratory_rate',
     'walking_capacity', 'sleeping_duration', 'body_condition_score', 'heart_rate',
@@ -356,4 +352,5 @@ def predict(): # REMOVED 'async'
 
 # --- 4. Run the Flask App ---
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
