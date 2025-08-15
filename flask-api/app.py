@@ -334,7 +334,7 @@ def predict(): # REMOVED 'async'
 
             if response_data.get('cattle_id'):
                 doc_ref = db.collection(f'artifacts/{app_id}/users/{user_id}/cattle_data').document(response_data['cattle_id'])
-                doc_ref.set(response_data) # REMOVED 'await'
+                doc_ref.set(response_data)
                 print(f"Flask: Data for Cattle ID {response_data['cattle_id']} saved to Firestore successfully for user {user_id}.")
             else:
                 print("Flask Warning: cattle_id missing in response_data, skipping Firestore save.")
