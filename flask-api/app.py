@@ -4,7 +4,7 @@
 print("--- APP.PY EXECUTION STARTED ---")
 
 import pandas as pd
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import joblib
 import numpy as np
@@ -184,9 +184,18 @@ def get_rule_based_alerts(data):
     return list(set(detected_diseases)), final_alerts_list, abnormal_indicator_count
 
 
-# --- 2. Initialize Flask App ---
-app = Flask(__name__)
+# --- 2. Initialize Flask App with static file serving ---
+# The 'static_folder' path points to where your Vue.js app's built files are located.
+# The 'static_url_path' tells Flask to serve these files from the root URL.
+app = Flask(__name__, static_folder='../Remote_Livestock_Health_App/dist', static_url_path='/')
 CORS(app)
+
+
+# --- New route to serve the front-end ---
+@app.route("/")
+def serve_vue_app():
+    return send_from_directory(app.static_folder, 'index.html')
+
 
 # --- 3. Define the /predict API endpoint ---
 @app.route('/predict', methods=['POST'])
