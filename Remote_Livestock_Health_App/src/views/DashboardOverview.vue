@@ -1,6 +1,6 @@
 <template>
     <div class="content-area">
-        <h2 class="card-title">Dashboard Overview</h2> <!-- Changed title for consistency -->
+        <h2 class="card-title">Dashboard Overview</h2>
         <div v-if="store.loading" class="message-center loading-message">
             <i class="fa-solid fa-spinner fa-spin fa-2x"></i> Loading herd data...
         </div>
@@ -9,28 +9,27 @@
             <p>Please check your Flask API status and network connection.</p>
         </div>
         <div v-else>
-            <!-- Herd Health Status Cards (Updated to remove Observation) -->
+            <!-- Herd Health Status Cards (Updated to include Total Cattle) -->
             <div class="health-status-grid mb-8">
+                <!-- NEW: Total Cattle Card -->
+                <div class="status-card health-total">
+                    <h3>Total Cattle</h3>
+                    <i class="fa-solid fa-cow fa-2x"></i>
+                    <p class="count">{{ herdHealth.total }}</p>
+                    <!-- No percentage for total -->
+                </div>
                 <div class="status-card health-healthy">
                     <h3>Healthy</h3>
                     <i class="fa-solid fa-seedling fa-2x"></i>
                     <p class="count">{{ herdHealth.healthy }}</p>
                     <span class="percentage">({{ herdHealth.healthyPercentage }}%)</span>
                 </div>
-                <div class="status-card health-unhealthy"> <!-- Changed class from health-at-risk -->
-                    <h3>Unhealthy</h3> <!-- Changed title from At Risk -->
+                <div class="status-card health-unhealthy">
+                    <h3>Unhealthy</h3>
                     <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
-                    <p class="count">{{ herdHealth.unhealthy }}</p> <!-- Changed from herdHealth.atRisk -->
-                    <span class="percentage">({{ herdHealth.unhealthyPercentage }}%)</span> <!-- Changed from herdHealth.atRiskPercentage -->
+                    <p class="count">{{ herdHealth.unhealthy }}</p>
+                    <span class="percentage">({{ herdHealth.unhealthyPercentage }}%)</span>
                 </div>
-                <!-- Removed: Observation Card
-                <div class="status-card health-observation">
-                    <h3>Under Observation</h3>
-                    <i class="fa-solid fa-eye fa-2x"></i>
-                    <p class="count">{{ herdHealth.underObservation }}</p>
-                    <span class="percentage">({{ herdHealth.underObservationPercentage }}%)</span>
-                </div>
-                -->
             </div>
 
             <!-- Recent Critical Alerts Section -->
@@ -106,6 +105,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, reactive } from 'vue';
 import { store } from '../main.js'; // Import the global store
+import Chart from 'chart.js/auto'; // Import Chart.js (This was already in your DashboardOverview.vue)
 
 
 // Refs for Chart.js canvas elements
@@ -168,7 +168,7 @@ const herdHealth = computed(() => {
         unhealthy, // Renamed from atRisk
         total, // Renamed from totalHerdCount for clarity
         healthyPercentage: total > 0 ? ((healthy / total) * 100).toFixed(1) : 0,
-        unhealthyPercentage: total > 0 ? ((unhealthy / total) * 100).toFixed(1) : 0, // Renamed
+        unhealthyPercentage: total > 0 ? ((unhealthy / total) * 100).toFixed(1) : 0, 
     };
 });
 
@@ -194,10 +194,11 @@ const trendData = reactive({
 const createChart = (canvasRef, chartType, data, options) => {
     if (canvasRef && canvasRef.value) {
         const ctx = canvasRef.value.getContext('2d');
-        if (window.Chart.getChart(ctx)) { // Use window.Chart
-            window.Chart.getChart(ctx).destroy(); // Use window.Chart
+        // Check if a chart instance already exists on the canvas and destroy it
+        if (Chart.getChart(ctx)) { 
+            Chart.getChart(ctx).destroy(); 
         }
-        return new window.Chart(ctx, { // Use window.Chart
+        return new Chart(ctx, { 
             type: chartType,
             data: data,
             options: options
@@ -370,6 +371,7 @@ const getAlertSeverityClass = (severity) => {
 
 .health-status-grid {
     display: grid;
+    /* Adjusted grid to accommodate 3 columns for total, healthy, unhealthy */
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 25px;
     margin-bottom: 25px;
@@ -416,9 +418,10 @@ const getAlertSeverityClass = (severity) => {
 }
 
 /* Specific colors for status cards (UPDATED) */
+/* NEW: Style for Total Cattle Card */
+.status-card.health-total i, .status-card.health-total .count { color: var(--primary-color); }
 .status-card.health-healthy i, .status-card.health-healthy .count { color: var(--success-color); }
-.status-card.health-unhealthy i, .status-card.health-unhealthy .count { color: var(--danger-color); } /* Updated to use danger-color */
-/* Removed: .status-card.health-at-risk and .status-card.health-observation styles */
+.status-card.health-unhealthy i, .status-card.health-unhealthy .count { color: var(--danger-color); }
 
 
 /* Recent Alerts Card */
@@ -714,3 +717,4 @@ const getAlertSeverityClass = (severity) => {
     }
 }
 </style>
+

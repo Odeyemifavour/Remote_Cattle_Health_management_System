@@ -10,29 +10,8 @@
         </div>
 
         <div v-else>
+            <!-- REMOVED: Summary Statistics Section -->
             
-            <div class="card summary-card mb-8">
-                <h3 class="card-title-small">Herd Overview</h3>
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <i class="fa-solid fa-cow summary-icon"></i>
-                        <span class="summary-value">{{ filteredAndSortedCattle.length }}</span>
-                        <span class="summary-label">Total Cattle</span>
-                    </div>
-                    <div class="summary-item status-healthy-bg">
-                        <i class="fa-solid fa-heart-pulse summary-icon"></i>
-                        <span class="summary-value">{{ healthyCattleCount }}</span>
-                        <span class="summary-label">Healthy</span>
-                    </div>
-                    <div class="summary-item status-unhealthy-bg">
-                        <i class="fa-solid fa-skull-crossbones summary-icon"></i>
-                        <span class="summary-value">{{ unhealthyCattleCount }}</span>
-                        <span class="summary-label">Unhealthy</span>
-                    </div>
-                    <!-- REMOVED: The "Under Observation" summary item completely -->
-                </div>
-            </div>
-
             <div class="card controls-card mb-8">
                 <h3 class="card-title-small">Herd Management Filters</h3>
                 <div class="controls-grid">
@@ -42,7 +21,6 @@
                             <option value="">All</option>
                             <option value="Healthy">Healthy</option>
                             <option value="Unhealthy">Unhealthy</option>
-                            <!-- REMOVED: <option value="Observation">Under Observation</option> -->
                         </select>
                     </div>
                     <div class="filter-group">
@@ -57,7 +35,6 @@
                             <option value="riskLevel">Risk Level</option>
                             <option value="breedTypeDisplay">Breed Type</option>
                             <option value="timestamp">Last Updated</option>
-                            <!-- REMOVED: Alerts option from sorting -->
                         </select>
                         <select v-model="sortDirection" class="control-select ml-2">
                             <option value="asc">Ascending</option>
@@ -78,7 +55,6 @@
                             <th @click="sortBy('breedTypeDisplay')">Breed Type <i :class="getSortIcon('breedTypeDisplay')"></i></th>
                             <th @click="sortBy('timestamp')">Last Updated <i :class="getSortIcon('timestamp')"></i></th>
                             <th>Actions</th>
-                            <!-- REMOVED: Alerts count column -->
                         </tr>
                     </thead>
                     <tbody>
@@ -99,7 +75,6 @@
                             <td data-label="Actions">
                                 <button @click.stop="openDetailsModal(cattle)" class="action-btn">View Details</button>
                             </td>
-                            <!-- REMOVED: Alerts count column -->
                         </tr>
                     </tbody>
                 </table>
@@ -123,7 +98,6 @@
                 <button class="modal-close-button" @click="closeDetailsModal">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
-                <!-- FIXED: Modal Title -->
                 <h3 class="modal-title">Details for {{ selectedCattleDetails.cattle_id }}</h3>
                 <div class="modal-body">
                     <div class="modal-info-grid">
@@ -142,8 +116,8 @@
                         <p><strong>Health Confidence Rate: </strong> <span>{{ selectedCattleDetails.monitoring_results?.confidence || 'N/A' }}</span></p>
                     </div>
 
-                    <!-- RE-ADDED: Detected Diseases section -->
-                    <h4 v-if="selectedCattleDetails.specific_diseases_detected?.length > 0">Detected Diseases:</h4>
+                    <!-- Detected Diseases section -->
+                    <h4 v-if="selectedCattleDetails.specific_diseases_detected?.length > 0">Detected Health Condition(s):</h4>
                     <ul v-if="selectedCattleDetails.specific_diseases_detected?.length > 0" class="disease-list">
                         <li v-for="disease in selectedCattleDetails.specific_diseases_detected" :key="disease">
                             <i class="fa-solid fa-virus"></i> {{ disease }}
@@ -151,7 +125,7 @@
                     </ul>
                     <p v-else class="no-disease-message">No specific diseases detected.</p>
 
-                    <!-- RE-ADDED & FIXED: Observations from animal data (alerts) -->
+                    <!-- Observations from animal data (alerts) -->
                     <h4 v-if="selectedCattleDetails.alerts?.length > 0">Observations from animal data:</h4>
                     <div v-if="selectedCattleDetails.alerts?.length > 0" class="alerts-observations-list">
                         <div v-for="alert in selectedCattleDetails.alerts" :key="alert.message" :class="getAlertClass(alert.severity)">
@@ -212,46 +186,28 @@ const latestCattleDataProcessed = computed(() => {
         const healthStatus = cattle.monitoring_results.health_status;
         const riskLevel = cattle.monitoring_results.risk_level;
         const rawBreedType = cattle.input_data_snapshot?.breed_type;
-        const breedTypeDisplay = rawBreedType;
 
-        // Logic to categorize breed type - No "N/A", always "Normal Breed" or "Cross Breed"
-        // let breedTypeDisplay = 'Normal Breed'; // Default to Normal Breed
-        // if (rawBreedType) {
-        //     const lowerBreed = rawBreedType.toLowerCase();
-        //     // If it contains "cross" or has more than one word, categorize as "Cross Breed"
-        //     // Example: "Jersey Cross", "Holstein Friesian", "Mixed Breed" -> "Cross Breed"
-        //     if (lowerBreed.includes('cross') || lowerBreed.split(' ').length > 1) {
-        //         breedTypeDisplay = 'Cross Breed';
-        //     } else {
-        //         breedTypeDisplay = 'Normal Breed';
-        //     }
-        // }
+        let breedTypeDisplay = 'Normal Breed'; // Default to Normal Breed
+        if (rawBreedType && rawBreedType.toLowerCase().includes('cross')) {
+            breedTypeDisplay = 'Cross Breed';
+        }
 
         return {
             ...cattle,
             healthStatusDisplay: healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1).toLowerCase(), 
             riskLevel: riskLevel,
-            breedTypeDisplay: breedTypeDisplay, // Now always "Normal Breed" or "Cross Breed"
+            breedTypeDisplay: breedTypeDisplay,
             timestamp: cattle.timestamp
         };
     });
 });
 
-const healthyCattleCount = computed(() => {
-    // Defensive check: Ensure latestCattleDataProcessed.value is an array
-    return (latestCattleDataProcessed.value || []).filter(c => c.healthStatusDisplay === 'Healthy').length;
-});
-
-const unhealthyCattleCount = computed(() => {
-    // Defensive check: Ensure latestCattleDataProcessed.value is an array
-    return (latestCattleDataProcessed.value || []).filter(c => c.healthStatusDisplay === 'Unhealthy').length;
-});
+// REMOVED: totalCattleCount, healthyCattleCount, unhealthyCattleCount, healthyPercentage, unhealthyPercentage
+// These are now in DashboardOverview.vue
 
 
-
-// Filter and sort cattle data (UPDATED for breed type and removed Observation & Alerts.length)
+// Filter and sort cattle data
 const filteredAndSortedCattle = computed(() => {
-    // DEFENSIVE FIX: Ensure data is always an array before starting operations
     let data = [...(latestCattleDataProcessed.value || [])];
 
     // 1. Filter
@@ -259,7 +215,7 @@ const filteredAndSortedCattle = computed(() => {
         const lowerSearchTerm = searchTerm.value.toLowerCase();
         data = data.filter(cattle =>
             cattle.cattle_id.toLowerCase().includes(lowerSearchTerm) ||
-            cattle.breedTypeDisplay.toLowerCase().includes(lowerSearchTerm) // Search simplified breed
+            cattle.breedTypeDisplay.toLowerCase().includes(lowerSearchTerm)
         );
     }
 
@@ -277,22 +233,19 @@ const filteredAndSortedCattle = computed(() => {
             return path.split('.').reduce((acc, part) => acc && acc[part], obj);
         };
 
-        // Special handling for `healthStatusDisplay`, `riskLevel`, and `breedTypeDisplay` for proper ordering
         if (sortByField.value === 'healthStatusDisplay') {
-            // Define explicit order for sorting: Healthy before Unhealthy
             const statusOrder = {'Healthy': 1, 'Unhealthy': 2}; 
-            valA = statusOrder[a.healthStatusDisplay] || 99; // Fallback for unexpected status
+            valA = statusOrder[a.healthStatusDisplay] || 99;
             valB = statusOrder[b.healthStatusDisplay] || 99;
         } else if (sortByField.value === 'riskLevel') {
             const levels = { 'Low': 1, 'Low-Medium': 2, 'Medium': 3, 'High': 4, 'Critical': 5 };
             valA = levels[a.riskLevel] || 0;
             valB = levels[b.riskLevel] || 0;
-        } else if (sortByField.value === 'breedTypeDisplay') { // Custom sort for breed type
-            const breedOrder = {'Normal Breed': 1, 'Cross Breed': 2}; // Only these two
+        } else if (sortByField.value === 'breedTypeDisplay') {
+            const breedOrder = {'Normal Breed': 1, 'Cross Breed': 2};
             valA = breedOrder[a.breedTypeDisplay] || 99;
             valB = breedOrder[b.breedTypeDisplay] || 99;
         } 
-        // REMOVED: Alerts.length sorting
         else {
             valA = getNestedValue(a, sortByField.value);
             valB = getNestedValue(b, sortByField.value);
@@ -302,8 +255,9 @@ const filteredAndSortedCattle = computed(() => {
         if (valB === undefined || valB === null) valB = sortDirection.value === 'asc' ? Infinity : -Infinity;
 
         if (typeof valA === 'string') {
-            return sortDirection.value === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            return sortDirection.value === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA); 
         } else {
+            // FIX: Corrected this line from 'valB - a' to 'valB - valA' for numerical sorting
             return sortDirection.value === 'asc' ? valA - valB : valB - valA;
         }
     });
@@ -315,7 +269,6 @@ const filteredAndSortedCattle = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredAndSortedCattle.value.length / itemsPerPage));
 
 const paginatedCattle = computed(() => {
-    // Defensive check for paginatedCattle too
     const dataToPaginate = filteredAndSortedCattle.value || [];
     const start = (currentPage.value - 1) * itemsPerPage;
     const end = start + itemsPerPage;
@@ -364,7 +317,6 @@ const getRiskClass = (risk) => {
     return `risk-${risk?.toLowerCase().replace(' ', '-')}`;
 };
 
-// NEW/FIXED: Function to get specific alert class for observations
 const getAlertClass = (severity) => {
     return `alert-observation-${severity?.toLowerCase().replace(' ', '-')}`;
 };
@@ -428,63 +380,8 @@ const formatTimestamp = (timestamp) => {
     border-radius: 1.5px;
 }
 
-/* Summary Card Styles */
-.summary-card {
-    padding: 30px;
-    text-align: center;
-    background: linear-gradient(135deg, #e0f7fa, #e8f5e9);
-    border: 1px solid #c8e6c9;
-}
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-}
-.summary-item {
-    background-color: var(--card-bg);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid var(--border-color);
-}
-.summary-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-}
-.summary-icon {
-    font-size: 2.2em;
-    color: var(--primary-color);
-    margin-bottom: 10px;
-}
-.summary-value {
-    font-size: 2.5em;
-    font-weight: 800;
-    color: var(--text-dark);
-    line-height: 1;
-}
-.summary-label {
-    font-size: 0.95em;
-    color: var(--text-secondary);
-    margin-top: 5px;
-    font-weight: 500;
-}
-.summary-item.status-healthy-bg { background-color: var(--success-color); }
-.summary-item.status-healthy-bg .summary-icon,
-.summary-item.status-healthy-bg .summary-value,
-.summary-item.status-healthy-bg .summary-label { color: var(--text-light); }
-
-.summary-item.status-unhealthy-bg { background-color: var(--danger-color); }
-.summary-item.status-unhealthy-bg .summary-icon,
-.summary-item.status-unhealthy-bg .summary-value,
-.summary-item.status-unhealthy-bg .summary-label { color: var(--text-light); }
-
-/* No .summary-item.status-observation-bg related styles anymore */
+/* REMOVED: Summary Card Styles */
+/* .summary-card, .summary-grid, .summary-item, .summary-icon, .summary-value, .summary-label, .percentage, .status-healthy-bg, .status-unhealthy-bg styles are removed from here */
 
 
 /* Controls Card & Grid */
@@ -614,7 +511,6 @@ const formatTimestamp = (timestamp) => {
 /* Health Status Badges - Explicit text color for contrast */
 .status-healthy { background-color: var(--success-color); color: var(--text-light); }
 .status-unhealthy { background-color: var(--danger-color); color: var(--text-light); }
-/* No .status-observation related styling anymore */
 
 
 /* Risk Badges */
@@ -623,8 +519,6 @@ const formatTimestamp = (timestamp) => {
 .risk-badge.medium { background-color: var(--alert-medium-border); color: var(--text-dark); }
 .risk-badge.low-medium { background-color: var(--alert-low-medium-border); color: var(--text-light); }
 .risk-badge.low { background-color: var(--alert-low-border); color: var(--text-dark); }
-
-/* REMOVED: .badge-count, .badge-none, .badge-alerts styles */
 
 
 /* Action Button - PRESERVED USER'S STYLES */
@@ -880,7 +774,6 @@ const formatTimestamp = (timestamp) => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 .modal-action-btn:hover {
     background: linear-gradient(145deg, var(--primary-dark), var(--primary-color)); /* User's requested hover gradient */
@@ -906,9 +799,7 @@ const formatTimestamp = (timestamp) => {
 
 /* Responsive Table */
 @media (max-width: 768px) {
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
+    /* Removed .summary-grid from here as it's no longer in this component */
     .table-controls {
         flex-direction: column;
         gap: 10px;

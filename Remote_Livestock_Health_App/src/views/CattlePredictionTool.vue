@@ -116,7 +116,7 @@
                 <p><strong>Timestamp: </strong> {{ predictionResult.timestamp }}</p>
             </div>
             <div v-if="predictionResult.specific_diseases_detected && predictionResult.specific_diseases_detected.length > 0" class="result-section">
-                <h4>Specific Diseases Detected: </h4>
+                <h4>Specific Health Condition Detected: </h4>
                 <ul>
                     <li v-for="disease in predictionResult.specific_diseases_detected" :key="disease">{{ disease }}</li>
                 </ul>

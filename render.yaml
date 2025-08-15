@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: Remote_Cattle_Health_management_System
+    env: python
+    buildCommand: pip install -r flask-api/requirements.txt && npm install --prefix Remote_Livestock_Health_App && npm run build --prefix Remote_Livestock_Health_App
+    startCommand: gunicorn --chdir flask-api app:app
+    envVars:
+      - key: VITE_API_URL
+        value: https://remote-cattle-health-management-system.onrender.com
